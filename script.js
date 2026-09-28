@@ -385,13 +385,13 @@
       { cls: "carta-despedida", texto: despedida }
     ].filter((b) => b.texto);
 
-    // El texto "fantasma" reserva el espacio para que la carta no salte al escribirse
+    // La hoja crece a medida que se escribe (sin dejar espacio en blanco reservado)
     const nodos = bloques.map((b) => {
       const typed = el("span", { class: "typed" });
-      const ghost = el("span", { class: "ghost" }, b.texto);
-      const p = el("p", { class: b.cls || null }, typed, ghost);
+      const p = el("p", { class: b.cls || null }, typed);
+      p.hidden = true;
       cont.append(p);
-      return { p, typed, ghost, chars: Array.from(b.texto) };
+      return { p, typed, chars: Array.from(b.texto) };
     });
 
     let saltar = false;
@@ -399,7 +399,7 @@
     const terminar = () => {
       nodos.forEach((n) => {
         n.typed.textContent = n.chars.join("");
-        n.ghost.textContent = "";
+        n.p.hidden = false;
         n.p.classList.remove("escribiendo");
       });
       papel.classList.add("terminada");
@@ -410,11 +410,11 @@
 
     async function escribir() {
       for (const n of nodos) {
+        n.p.hidden = false;
         n.p.classList.add("escribiendo");
         for (let i = 1; i <= n.chars.length; i++) {
           if (saltar) return terminar();
           n.typed.textContent = n.chars.slice(0, i).join("");
-          n.ghost.textContent = n.chars.slice(i).join("");
           const ch = n.chars[i - 1];
           await esperar(/[.!?…]/.test(ch) ? vel * 7 : /[,;:]/.test(ch) ? vel * 4 : vel);
         }
@@ -781,7 +781,7 @@
       const img = f.grande
         ? el("img", { src: f.src, alt: f.titulo || "", loading: "lazy", decoding: "async", width: f.ancho, height: f.alto, draggable: "false", referrerpolicy: "no-referrer" })
         : crearImg(f.src, f.titulo, i, f.forma);
-      const fig = el("figure", { class: "g-item", "data-cat": f.cat, "data-grande": f.grande, tabindex: "0", role: "button", "aria-label": "Ver foto: " + (f.titulo || i + 1) },
+      const fig = el("figure", { class: "g-item", "data-cat": f.cat, "data-grande": f.grande, "data-aspecto": f.ancho && f.alto ? (f.ancho / f.alto).toFixed(3) : "1", tabindex: "0", role: "button", "aria-label": "Ver foto: " + (f.titulo || i + 1) },
         img, f.titulo ? el("figcaption", {}, f.titulo) : null);
       const abrir = () => abrirLightbox(items.filter((x) => !x.classList.contains("oculto")), fig);
       fig.addEventListener("click", abrir);
@@ -805,7 +805,26 @@
       });
       btnMas.hidden = restantes === 0;
       btnMas.textContent = `Ver más fotos (${restantes})`;
+      ajustarGrid();
     }
+
+    // Cuadrícula pareja: filas cuadradas y, si la última fila queda incompleta,
+    // la foto más horizontal de esa fila se ensancha para no dejar huecos.
+    function ajustarGrid() {
+      const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean);
+      const n = cols.length || 1;
+      const fila = cols[0] || "auto";
+      if (grid.style.gridAutoRows !== fila) grid.style.gridAutoRows = fila;
+      items.forEach((it) => { it.style.gridColumn = ""; });
+      const visibles = items.filter((it) => !it.classList.contains("oculto") && !it.classList.contains("fuera"));
+      const r = visibles.length % n;
+      if (!r) return;
+      const ultimaFila = visibles.slice(-r);
+      const ancha = ultimaFila.reduce((a, b) => (Number(b.dataset.aspecto) > Number(a.dataset.aspecto) ? b : a));
+      ancha.style.gridColumn = `span ${n - r + 1}`;
+    }
+    if ("ResizeObserver" in window) new ResizeObserver(ajustarGrid).observe(grid);
+    else window.addEventListener("resize", ajustarGrid);
 
     const categoriasLocales = (g.categorias || []).filter((c) => fotos.some((f) => f.cat === c.id));
     const anios = [...new Set(album.map((f) => f.fecha.slice(0, 4)))].sort().map((y) => ({ id: "anio-" + y, nombre: y }));
