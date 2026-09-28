@@ -42,8 +42,20 @@ Nueva estrofa
 - Opcionales: `hora: "17:45"`, `foto: "fotos/…jpg"`, `destacado: true`.
 - Las cartas y poemas van entre comillas invertidas `` ` `` y pueden tener varias líneas.
 
-### 📸 Fotos
-Cópialas en **`fotos/`** con los nombres de `config.js`. Las fotos que falten **no se muestran**, así que puedes agregarlas poco a poco. Para ver dónde faltan, pon `mostrarFotosPendientes: true`.
+### 📷 Fotos del álbum de Google Fotos (automáticas)
+Las fotos del álbum compartido **"Nosotros <3"** (`album.enlace` en `config.js`) aparecen solas en:
+- la **galería** (con filtros por año y "Ver más fotos"),
+- el **carrusel** de polaroids (12 al azar, distintas cada vez),
+- la **portada** y el **cierre** (si no hay `portada.jpg` / `final.jpg`),
+- los **días de la agenda** que tengan la misma fecha que la foto.
+
+**Para agregar fotos: súbelas a ese álbum en Google Fotos.** Cada hora, GitHub revisa el álbum (`.github/workflows/fotos.yml` + `herramientas/actualizar-fotos.js`) y actualiza `fotos-album.json`. Para que sea al instante: en el repositorio ve a **Actions → Actualizar fotos del álbum → Run workflow**.
+
+Si el álbum deja de estar compartido con enlace, la página conserva las últimas fotos guardadas.
+Si pasan 60 días sin cambios, GitHub pausa la revisión automática: entra a **Actions** y toca **Enable workflow**.
+
+### 📸 Fotos propias
+También puedes copiar fotos en **`fotos/`** con los nombres de `config.js`. Las que falten **no se muestran**. Para ver dónde faltan, pon `mostrarFotosPendientes: true`.
 
 Consejo: reduce las fotos a ~1600 px de ancho (por ejemplo con squoosh.app). Las mayúsculas importan: `Foto.JPG` no es lo mismo que `foto.jpg`.
 

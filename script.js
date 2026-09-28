@@ -130,6 +130,7 @@
     img.decoding = "async";
     img.loading = "lazy";
     img.draggable = false;
+    if (/^https:\/\/lh\d\.googleusercontent\.com\//.test(src || "")) img.referrerPolicy = "no-referrer";
     const faltante = () => {
       if (pendientes) img.src = placeholder(src || "", w, h, seed);
       else if (alFaltar) alFaltar(img);
@@ -158,6 +159,68 @@
     if (pendientes) return lista;
     const ok = await Promise.all(lista.map((x) => existeImagen(x.foto)));
     return lista.filter((_, i) => ok[i]);
+  }
+
+  /* ---------- Álbum de Google Fotos (lista guardada en fotos-album.json) ---------- */
+  let albumTitulo = "";
+  let albumListo = Promise.resolve([]);
+  function cargarAlbum() {
+    const a = C.album || {};
+    if (!a.enlace) return Promise.resolve([]);
+    // Primero la copia más reciente del repositorio; si no, la de esta carpeta
+    const fuentes = [];
+    if (a.repositorio) fuentes.push(`https://raw.githubusercontent.com/${a.repositorio}/main/fotos-album.json`);
+    fuentes.push("fotos-album.json");
+    return (async () => {
+      for (const u of fuentes) {
+        try {
+          const r = await fetch(u, { cache: "no-cache" });
+          if (!r.ok) continue;
+          const j = await r.json();
+          if (Array.isArray(j.fotos) && j.fotos.length) {
+            albumTitulo = j.album || "";
+            return j.fotos.filter((f) => f && f.url && f.fecha);
+          }
+        } catch (e) { /* sin conexión o sin archivo: se prueba la siguiente fuente */ }
+      }
+      return [];
+    })();
+  }
+  const azar = (lista) => lista[Math.floor(Math.random() * lista.length)];
+  function muestra(lista, n) {
+    const copia = lista.slice();
+    for (let i = copia.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copia[i], copia[j]] = [copia[j], copia[i]];
+    }
+    return copia.slice(0, n);
+  }
+  // Google Fotos rechaza algunas páginas de origen (por ejemplo localhost): se piden sin "referrer"
+  const fotoAlbum = (f, alt, tamano) => el("img", { src: `${f.url}=${tamano}`, alt: alt || "", decoding: "async", draggable: "false", referrerpolicy: "no-referrer" });
+
+  // Fotos del álbum tomadas el mismo día que un momento de la agenda
+  function fotosEnAgenda(album) {
+    if (!album.length) return;
+    $$(".entrada[data-fecha]").forEach((art) => {
+      const delDia = album.filter((f) => f.fecha === art.dataset.fecha);
+      if (!delDia.length) return;
+      const tira = el("div", { class: "entrada-fotos" });
+      const figs = delDia.map((f, i) => {
+        const fig = el("figure", { class: "mini-foto", tabindex: "0", role: "button", "data-grande": `${f.url}=w1800-h1800`, "aria-label": "Ver foto" },
+          el("img", { src: `${f.url}=w360-h360-c`, alt: "", loading: "lazy", decoding: "async", draggable: "false", referrerpolicy: "no-referrer" }),
+          el("figcaption", { hidden: "" }, fechaLarga(f.fecha)));
+        if (i >= 4) fig.hidden = true;
+        if (i === 3 && delDia.length > 4) fig.append(el("span", { class: "mini-mas" }, `+${delDia.length - 4}`));
+        return fig;
+      });
+      figs.forEach((fig) => {
+        const abrir = () => abrirLightbox(figs, fig);
+        fig.addEventListener("click", abrir);
+        fig.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } });
+        tira.append(fig);
+      });
+      art.querySelector(".entrada-cuerpo h4").after(tira);
+    });
   }
 
   const ICONO_IZQ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
@@ -229,7 +292,19 @@
   /* ---------- Portada ---------- */
   function prepararHero() {
     const h = C.hero || {};
-    const img = crearImg(h.foto, "Nuestra foto", 1, "paisaje");
+    // Sin foto de portada propia: una foto horizontal del álbum, distinta cada vez
+    const desdeAlbum = (img) => {
+      img.remove();
+      albumListo.then((album) => {
+        if (!album.length) return;
+        const horizontales = album.filter((f) => f.ancho > f.alto);
+        const alt = fotoAlbum(azar(horizontales.length ? horizontales : album), "Nosotros", "w1920");
+        alt.classList.add("desde-album");
+        alt.addEventListener("load", () => alt.classList.add("lista"));
+        $("#hero-bg").append(alt);
+      });
+    };
+    const img = crearImg(h.foto, "Nuestra foto", 1, "paisaje", pendientes ? undefined : desdeAlbum);
     img.loading = "eager";
     $("#hero-bg").append(img);
 
@@ -449,6 +524,7 @@
     }
 
     const icono = tipo === "momento" ? (e.icono || T.icono) : T.icono;
+    const fechaExacta = !aprox && !e.foto ? p.iso : null; // para sumarle fotos del álbum de ese día
     const cuerpo = el("div", { class: "entrada-cuerpo" },
       el("div", { class: "entrada-meta" },
         el("span", { class: "chip-tipo" }, `${icono} ${T.nombre}`),
@@ -477,6 +553,7 @@
     return el("article", {
       class: `entrada tipo-${tipo}` + (e.destacado ? " destacada" : ""),
       "data-tipo": tipo,
+      "data-fecha": fechaExacta,
       "data-reveal": ""
     }, fecha, cuerpo);
   }
@@ -543,6 +620,22 @@
       hay = true;
       cont.append(crearCarrusel({ ...car, fotos: listas[ci] }, ci));
     });
+    if (!hay) {
+      // Sin fotos propias: polaroids al azar del álbum, en orden de fecha
+      const album = await albumListo;
+      const n = (C.album && C.album.fotosEnCarrusel) || 12;
+      if (album.length) {
+        hay = true;
+        const elegidas = muestra(album, n).sort((a, b) => (a.fecha + (a.hora || "")).localeCompare(b.fecha + (b.hora || "")));
+        cont.append(crearCarrusel({
+          subtitulo: "Pedacitos de nosotros · cada vez que vuelvas verás recuerdos distintos",
+          fotos: elegidas.map((f) => {
+            const [y, mth, d] = f.fecha.split("-").map(Number);
+            return { foto: `${f.url}=w900`, titulo: fechaLarga(f.fecha), fecha: DIAS[new Date(y, mth - 1, d).getDay()] };
+          })
+        }, 0));
+      }
+    }
     const sec = $("#recuerdos");
     sec.hidden = !hay;
     if (hay) observarRevelado(sec);
@@ -658,23 +751,38 @@
     return raiz;
   }
 
-  /* ---------- Galería con filtros ---------- */
+  /* ---------- Galería: fotos propias + álbum de Google Fotos ---------- */
   async function iniciarGaleria() {
     const g = C.galeria || {};
     const sec = $("#galeria");
-    const fotos = await conFoto(g.fotos || []);
+    const [locales, album] = await Promise.all([conFoto(g.fotos || []), albumListo]);
+    const formas = ["retrato", "cuadrada", "alta", "paisaje", "retrato", "alta"];
+    const fotos = [
+      ...locales.map((f, i) => ({ src: f.foto, titulo: f.titulo, cat: f.categoria, forma: f.forma || formas[i % formas.length] })),
+      ...album.map((f) => ({ src: `${f.url}=w700`, grande: `${f.url}=w1800-h1800`, titulo: fechaLarga(f.fecha), cat: "anio-" + f.fecha.slice(0, 4), ancho: f.ancho, alto: f.alto }))
+    ];
     if (!fotos.length) { sec.hidden = true; return; }
     sec.hidden = false;
+    if (album.length) {
+      $("#galeria-sub").textContent = `${album.length} fotos de nuestro álbum${albumTitulo ? " “" + albumTitulo + "”" : ""} · toca cualquiera para verla en grande`;
+      const enlace = $("#galeria-album");
+      enlace.href = C.album.enlace;
+      enlace.hidden = false;
+    }
 
     const filtros = $("#filtros");
     const grid = $("#galeria-grid");
-    const formas = ["retrato", "cuadrada", "alta", "paisaje", "retrato", "alta"];
+    const btnMas = $("#galeria-mas");
+    const PASO = (C.album && C.album.fotosPorPagina) || 12;
+    let limite = PASO;
+    let cat = "todas";
 
     const items = fotos.map((f, i) => {
-      const img = crearImg(f.foto, f.titulo, i, f.forma || formas[i % formas.length]);
-      const fig = el("figure", { class: "g-item", "data-cat": f.categoria, tabindex: "0", role: "button", "aria-label": "Ver foto: " + (f.titulo || (i + 1)) },
+      const img = f.grande
+        ? el("img", { src: f.src, alt: f.titulo || "", loading: "lazy", decoding: "async", width: f.ancho, height: f.alto, draggable: "false", referrerpolicy: "no-referrer" })
+        : crearImg(f.src, f.titulo, i, f.forma);
+      const fig = el("figure", { class: "g-item", "data-cat": f.cat, "data-grande": f.grande, tabindex: "0", role: "button", "aria-label": "Ver foto: " + (f.titulo || i + 1) },
         img, f.titulo ? el("figcaption", {}, f.titulo) : null);
-      fig.style.animationDelay = (i % 6) * 0.06 + "s";
       const abrir = () => abrirLightbox(items.filter((x) => !x.classList.contains("oculto")), fig);
       fig.addEventListener("click", abrir);
       fig.addEventListener("keydown", (e) => {
@@ -684,7 +792,24 @@
       return fig;
     });
 
-    const cats = (g.categorias || []).filter((c) => fotos.some((f) => f.categoria === c.id));
+    // Muestra las fotos del filtro elegido hasta el límite; el resto espera "Ver más"
+    function aplicar() {
+      let k = 0;
+      let restantes = 0;
+      items.forEach((it) => {
+        const ok = cat === "todas" || it.dataset.cat === cat;
+        let dentro = false;
+        if (ok) { if (k < limite) { dentro = true; it.style.animationDelay = (k % 6) * 0.06 + "s"; k++; } else restantes++; }
+        it.classList.toggle("oculto", !ok);
+        it.classList.toggle("fuera", ok && !dentro);
+      });
+      btnMas.hidden = restantes === 0;
+      btnMas.textContent = `Ver más fotos (${restantes})`;
+    }
+
+    const categoriasLocales = (g.categorias || []).filter((c) => fotos.some((f) => f.cat === c.id));
+    const anios = [...new Set(album.map((f) => f.fecha.slice(0, 4)))].sort().map((y) => ({ id: "anio-" + y, nombre: y }));
+    const cats = [...categoriasLocales, ...anios];
     if (cats.length > 1) {
       [{ id: "todas", nombre: "✨ Todas" }, ...cats].forEach((c) => {
         const b = el("button", { class: "filtro" + (c.id === "todas" ? " activo" : ""), type: "button", "aria-pressed": String(c.id === "todas") }, c.nombre);
@@ -693,21 +818,15 @@
             x.classList.toggle("activo", x === b);
             x.setAttribute("aria-pressed", String(x === b));
           });
-          let k = 0;
-          items.forEach((it) => {
-            const ok = c.id === "todas" || it.dataset.cat === c.id;
-            it.classList.toggle("oculto", !ok);
-            if (ok) {
-              it.style.animation = "none";
-              void it.offsetWidth; // reinicia la animación de entrada
-              it.style.animation = "";
-              it.style.animationDelay = (k++ % 6) * 0.06 + "s";
-            }
-          });
+          cat = c.id;
+          limite = PASO;
+          aplicar();
         });
         filtros.append(b);
       });
     }
+    btnMas.addEventListener("click", () => { limite += PASO * 2; aplicar(); });
+    aplicar();
     observarRevelado(sec);
   }
 
@@ -758,7 +877,7 @@
     const img = $("#lb-img");
     const poner = () => {
       img.classList.remove("zoom");
-      img.src = fig.querySelector("img").src;
+      img.src = fig.dataset.grande || fig.querySelector("img").src;
       img.alt = fig.getAttribute("aria-label") || "";
       $("#lb-caption").textContent = fig.querySelector("figcaption")?.textContent || "";
       $("#lb-contador").textContent = `${LB.idx + 1} / ${LB.lista.length}`;
@@ -1210,7 +1329,18 @@
   function iniciarFinal() {
     const f = C.final || {};
     const marco = $("#final-foto");
-    marco.append(crearImg(f.foto, "Nuestra foto especial", 4, "retrato", () => marco.remove()));
+    // Sin foto propia: una foto vertical del álbum
+    marco.append(crearImg(f.foto, "Nuestra foto especial", 4, "retrato", (img) => {
+      img.remove();
+      marco.hidden = true;
+      albumListo.then((album) => {
+        if (!album.length) { marco.remove(); return; }
+        const verticales = album.filter((x) => x.alto >= x.ancho);
+        const alt = fotoAlbum(azar(verticales.length ? verticales : album), "Nuestra foto especial", "w800");
+        alt.addEventListener("load", () => { marco.hidden = false; });
+        marco.append(alt);
+      });
+    }));
     $("#final-titulo").textContent = f.titulo || "";
     $("#final-fecha").textContent = f.fecha || "";
     $("#final-fecha-texto").textContent = f.fechaTexto || "";
@@ -1501,6 +1631,7 @@
   }
 
   /* ---------- Arranque ---------- */
+  albumListo = cargarAlbum();
   rellenarTextos();
   iniciarModo();
   prepararHero();
@@ -1515,6 +1646,7 @@
   iniciarRevelado();
   sincronizarSecciones();
   Promise.all([iniciarCarruseles(), iniciarGaleria()]).then(sincronizarSecciones);
+  albumListo.then(fotosEnAgenda);
   iniciarNav();
   iniciarEfectosFondo();
   iniciarCorazonesAlTocar();

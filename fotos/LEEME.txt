@@ -1,5 +1,8 @@
-Copia aquí tus fotos. Las que no existan simplemente no se muestran,
-así que puedes ir agregándolas poco a poco.
+LA FORMA FÁCIL: sube las fotos al álbum de Google Fotos "Nosotros <3".
+Aparecen solas en la página (galería, carrusel, portada, cierre y agenda).
+
+Esta carpeta es opcional, para fotos con un lugar fijo. Las que no existan
+simplemente no se muestran.
 
 portada.jpg              -> fondo de la portada (horizontal)
 recuerdo-1.jpg ... recuerdo-6.jpg   -> carrusel (solo aparece si hay al menos una)

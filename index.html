@@ -150,10 +150,14 @@
         <div class="titulo-seccion" data-reveal>
           <span class="eyebrow" data-capitulo></span>
           <h2>Nuestra galería</h2>
-          <p>Toca cualquier foto para verla en grande</p>
+          <p id="galeria-sub">Toca cualquier foto para verla en grande</p>
         </div>
         <div class="filtros" id="filtros" data-reveal></div>
         <div class="galeria-grid" id="galeria-grid" data-reveal></div>
+        <div class="galeria-pie">
+          <button class="btn btn-borde" id="galeria-mas" type="button" hidden></button>
+          <a class="galeria-album" id="galeria-album" target="_blank" rel="noopener" hidden>Ver el álbum completo en Google Fotos ↗</a>
+        </div>
       </div>
     </section>
 
@@ -264,7 +268,7 @@
     <button class="lb-btn lb-cerrar" id="lb-cerrar" type="button" aria-label="Cerrar">✕</button>
     <button class="lb-btn lb-prev" id="lb-prev" type="button" aria-label="Foto anterior">‹</button>
     <figure class="lb-figura">
-      <img id="lb-img" alt="">
+      <img id="lb-img" alt="" referrerpolicy="no-referrer">
       <figcaption><span id="lb-caption"></span><small id="lb-contador"></small></figcaption>
     </figure>
     <button class="lb-btn lb-next" id="lb-next" type="button" aria-label="Foto siguiente">›</button>
