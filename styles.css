@@ -61,6 +61,9 @@ body {
   transition: background-color .6s ease, color .6s ease;
 }
 body.bloqueado { overflow: hidden; }
+/* Nada puede hacer la página más ancha que la pantalla (evita que el celular la aleje) */
+html, body { max-width: 100%; }
+@supports (overflow-x: clip) { html, body { overflow-x: clip; } }
 img { max-width: 100%; display: block; }
 button { font: inherit; color: inherit; cursor: pointer; }
 a { color: inherit; }
@@ -435,6 +438,7 @@ section { padding: clamp(64px, 11vw, 136px) 0; position: relative; scroll-margin
 /* ==========================================================================
    3. CARRUSEL (polaroids)
    ========================================================================== */
+.recuerdos { overflow: hidden; }   /* las polaroids de los lados se asoman sin ensanchar la página */
 .carrusel + .carrusel { margin-top: 90px; }
 .carrusel-cab { text-align: center; margin-bottom: 26px; }
 .carrusel-cab h3 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0; }
@@ -458,7 +462,7 @@ section { padding: clamp(64px, 11vw, 136px) 0; position: relative; scroll-margin
   transition: transform .9s cubic-bezier(.2, .8, .2, 1), opacity .9s, filter .9s;
   cursor: pointer;
 }
-.slide.lejana { opacity: 0; pointer-events: none; }
+.slide.lejana { opacity: 0; visibility: hidden; pointer-events: none; }
 .slide.activa { cursor: grab; }
 .polaroid {
   background: #fff;

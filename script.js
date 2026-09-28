@@ -685,11 +685,13 @@
         let d = i - actual;
         if (d > n / 2) d -= n;
         if (d < -n / 2) d += n;
-        s.style.setProperty("--d", d);
-        s.style.setProperty("--ad", Math.abs(d));
+        const lejana = Math.abs(d) > 2;
+        const dv = Math.max(-3, Math.min(3, d)); // las ocultas esperan cerca, no a cientos de píxeles
+        s.style.setProperty("--d", dv);
+        s.style.setProperty("--ad", Math.abs(dv));
         s.style.zIndex = 20 - Math.abs(d);
         s.classList.toggle("activa", d === 0);
-        s.classList.toggle("lejana", Math.abs(d) > 2);
+        s.classList.toggle("lejana", lejana);
         s.setAttribute("aria-hidden", d === 0 ? "false" : "true");
       });
       Array.from(dots.children).forEach((d, i) => d.classList.toggle("activo", i === actual));
