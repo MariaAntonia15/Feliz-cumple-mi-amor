@@ -1,0 +1,8 @@
+Copia aquí tus fotos con estos nombres (o cambia los nombres en config.js):
+
+portada.jpg            -> foto principal (horizontal)
+recuerdo-1.jpg ... recuerdo-6.jpg   -> carrusel
+historia-1.jpg ... historia-5.jpg   -> línea del tiempo
+galeria-1.jpg  ... galeria-12.jpg   -> galería
+portada-cancion.jpg    -> disco de la música (cuadrada)
+final.jpg              -> foto del cierre

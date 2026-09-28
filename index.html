@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi historia favorita eres tú ❤️</title>
+  <meta name="description" content="Una carta de amor interactiva, hecha con todo el corazón.">
+  <meta name="theme-color" content="#b8123f">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❤️</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@500;600&family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <script src="config.js"></script>
+  <script>
+    document.documentElement.classList.add("js");
+    (function () {
+      var m = null;
+      try { m = localStorage.getItem("modo-romantico"); } catch (e) {}
+      if (!m) m = (window.CONFIG && window.CONFIG.modoNocturnoPorDefecto) ? "night" : "light";
+      document.documentElement.setAttribute("data-theme", m);
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- ============ BIENVENIDA: SOBRE ============ -->
+  <div class="intro" id="intro">
+    <div class="intro-contenido">
+      <div class="sobre" role="button" tabindex="0" aria-label="Abrir la carta">
+        <div class="sobre-cuerpo"></div>
+        <div class="sobre-carta"><span data-bind="suNombre"></span></div>
+        <div class="sobre-frente"></div>
+        <div class="sobre-solapa"></div>
+        <div class="sobre-sello">❤</div>
+      </div>
+      <p class="intro-texto" id="intro-texto"></p>
+      <button class="btn" id="intro-btn" type="button"></button>
+      <p class="intro-nota">🎧 Sube el volumen</p>
+    </div>
+  </div>
+
+  <canvas id="fx" class="capa-fx" aria-hidden="true"></canvas>
+  <canvas id="confeti" class="capa-confeti" aria-hidden="true"></canvas>
+
+  <!-- ============ NAVEGACIÓN ============ -->
+  <nav class="nav" id="nav">
+    <a href="#inicio" class="nav-marca" data-bind="marca"></a>
+    <ul class="nav-links">
+      <li><a href="#carta">Carta</a></li>
+      <li><a href="#recuerdos">Recuerdos</a></li>
+      <li><a href="#historia">Historia</a></li>
+      <li><a href="#galeria">Galería</a></li>
+      <li><a href="#razones">Razones</a></li>
+      <li><a href="#musica">Música</a></li>
+      <li hidden><a href="#videos" id="nav-videos">Videos</a></li>
+      <li><a href="#final">Para ti</a></li>
+    </ul>
+    <button class="icono-btn" id="btn-modo" type="button">
+      <svg class="ico-luna" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="ico-sol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>
+    </button>
+  </nav>
+
+  <main>
+    <!-- ============ 1. PORTADA ============ -->
+    <header class="hero" id="inicio">
+      <div class="hero-bg" id="hero-bg"></div>
+      <div class="hero-overlay"></div>
+      <div class="hero-luces" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="hero-contenido">
+        <p class="eyebrow aparece">Para <span data-bind="suNombre"></span></p>
+        <h1 id="hero-titulo"></h1>
+        <p class="hero-sub aparece" data-despues id="hero-sub"></p>
+        <a href="#carta" class="btn btn-grande aparece" data-despues id="hero-btn"></a>
+      </div>
+      <a href="#contador" class="scroll-indicador aparece" data-despues aria-label="Bajar"><span></span></a>
+    </header>
+
+    <!-- ============ CONTADOR ============ -->
+    <section class="contador seccion-alt" id="contador">
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Nuestro tiempo</span>
+          <h2>Estamos juntos desde</h2>
+          <p class="fecha-grande" id="contador-fecha"></p>
+        </div>
+        <div class="contador-grid" data-reveal>
+          <div class="contador-item"><div class="contador-num" id="c-anios">0</div><div class="contador-label">Años</div></div>
+          <div class="contador-item"><div class="contador-num" id="c-meses">0</div><div class="contador-label">Meses</div></div>
+          <div class="contador-item"><div class="contador-num" id="c-dias">0</div><div class="contador-label">Días</div></div>
+          <div class="contador-item"><div class="contador-num" id="c-horas">0</div><div class="contador-label">Horas</div></div>
+          <div class="contador-item"><div class="contador-num" id="c-minutos">0</div><div class="contador-label">Minutos</div></div>
+          <div class="contador-item"><div class="contador-num" id="c-segundos">0</div><div class="contador-label">Segundos</div></div>
+        </div>
+        <p class="contador-total" data-reveal>…que son <strong id="contador-total">0</strong> días eligiéndonos ❤️</p>
+      </div>
+    </section>
+
+    <!-- ============ 2. CARTA ============ -->
+    <section class="carta" id="carta">
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Capítulo I</span>
+          <h2>Una carta para ti</h2>
+          <div class="ornamento"><span></span>❤<span></span></div>
+        </div>
+        <article class="papel" id="papel" data-reveal>
+          <div class="carta-cabecera"><span id="carta-para"></span><span id="carta-fecha"></span></div>
+          <div class="carta-contenido" id="carta-contenido"></div>
+          <p class="carta-firma" id="carta-firma"></p>
+          <p class="carta-pista" id="carta-pista">Toca la carta para leerla completa</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ 3. CARRUSELES ============ -->
+    <section class="recuerdos seccion-alt" id="recuerdos">
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Capítulo II</span>
+          <h2>Nuestros recuerdos</h2>
+          <div class="ornamento"><span></span>❤<span></span></div>
+        </div>
+        <div id="carruseles"></div>
+      </div>
+    </section>
+
+    <!-- ============ 4. LÍNEA DEL TIEMPO ============ -->
+    <section class="historia" id="historia">
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Capítulo III</span>
+          <h2>Nuestros momentos especiales</h2>
+          <div class="ornamento"><span></span>❤<span></span></div>
+        </div>
+        <ol class="timeline" id="timeline"></ol>
+      </div>
+    </section>
+
+    <!-- ============ 5. GALERÍA ============ -->
+    <section class="galeria seccion-alt" id="galeria">
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Capítulo IV</span>
+          <h2>Nuestra galería</h2>
+          <p>Toca cualquier foto para verla en grande</p>
+        </div>
+        <div class="filtros" id="filtros" data-reveal></div>
+        <div class="galeria-grid" id="galeria-grid" data-reveal></div>
+      </div>
+    </section>
+
+    <!-- ============ 6. RAZONES ============ -->
+    <section class="razones" id="razones">
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Capítulo V</span>
+          <h2><span id="razones-total">100</span> razones por las que te amo</h2>
+          <p id="razones-progreso"></p>
+        </div>
+        <div class="razones-grid" id="razones-grid"></div>
+        <div class="razones-acciones">
+          <button class="btn" id="razones-azar" type="button">Una razón al azar ✨</button>
+          <button class="btn btn-borde" id="razones-mas" type="button">Mostrar más razones</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 7. MÚSICA ============ -->
+    <section class="musica" id="musica">
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Capítulo VI</span>
+          <h2>Nuestra canción</h2>
+        </div>
+        <div class="reproductor" data-reveal>
+          <div class="vinilo"><div class="vinilo-label" id="vinilo-label"></div></div>
+          <div class="rep-info">
+            <p class="rep-dedicatoria" id="rep-dedicatoria"></p>
+            <h3 id="rep-titulo"></h3>
+            <p class="rep-artista" id="rep-artista"></p>
+            <div class="rep-controles">
+              <button class="play" id="btn-play" type="button" aria-label="Reproducir o pausar">
+                <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+                <svg class="ico-pausa" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+              </button>
+              <span class="tiempo" id="tiempo-actual">0:00</span>
+              <div class="barra" id="barra"><div class="barra-progreso" id="barra-progreso"></div></div>
+              <span class="tiempo" id="tiempo-total">0:00</span>
+            </div>
+            <div class="ecualizador" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIDEOS (se muestra solo si agregas videos) ============ -->
+    <section class="videos seccion-alt" id="videos" hidden>
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow">Capítulo VII</span>
+          <h2>Recuerdos en movimiento</h2>
+        </div>
+        <div class="videos-grid" id="videos-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============ 9. CIERRE ============ -->
+    <footer class="final" id="final">
+      <div class="contenedor">
+        <div class="final-foto polaroid" id="final-foto" data-reveal></div>
+        <h2 id="final-titulo" data-reveal></h2>
+        <p class="final-fecha" data-reveal><span id="final-fecha"></span><small id="final-fecha-texto"></small></p>
+        <p class="final-mensaje" id="final-mensaje" data-reveal></p>
+        <p class="firma" data-reveal><span id="final-firma"></span><strong id="final-nombre"></strong></p>
+        <div data-reveal><button class="btn btn-grande" id="btn-abrazo" type="button"></button></div>
+        <p class="pie">Hecho con ❤️ por <span data-bind="tuNombre"></span> · <a href="#inicio">Volver al inicio</a></p>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ============ LIGHTBOX ============ -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada">
+    <button class="lb-btn lb-cerrar" id="lb-cerrar" type="button" aria-label="Cerrar">✕</button>
+    <button class="lb-btn lb-prev" id="lb-prev" type="button" aria-label="Foto anterior">‹</button>
+    <figure class="lb-figura">
+      <img id="lb-img" alt="">
+      <figcaption><span id="lb-caption"></span><small id="lb-contador"></small></figcaption>
+    </figure>
+    <button class="lb-btn lb-next" id="lb-next" type="button" aria-label="Foto siguiente">›</button>
+  </div>
+
+  <button class="fab-musica" id="fab-musica" type="button" aria-label="Música: reproducir o pausar">
+    <svg class="ico-nota" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18.5a3 3 0 1 1-2-2.83V5l12-2.5v12a3 3 0 1 1-2-2.83V6.9L9 8.6z"/></svg>
+    <span class="mini-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+  </button>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <audio id="audio" preload="metadata"></audio>
+
+  <script src="script.js"></script>
+</body>
+</html>
