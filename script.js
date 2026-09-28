@@ -102,7 +102,7 @@
   }
 
   /* ---------- Fotos ---------- */
-  const PALETAS = [["#f9d3de", "#e58fa8"], ["#fbe1d4", "#e3969f"], ["#f1d6ef", "#c687b6"], ["#fde4e1", "#d9667f"], ["#f6e3c8", "#d7a15f"]];
+  const PALETAS = [["#f7d3cf", "#e0807a"], ["#fbe1d4", "#e3969f"], ["#f5d6d0", "#c9635e"], ["#fde4e1", "#d9505c"], ["#f6e3c8", "#d7a15f"]];
   const FORMAS = { retrato: [800, 1000], paisaje: [1600, 1000], cuadrada: [900, 900], alta: [800, 1200] };
 
   function placeholder(ruta, w, h, seed) {
@@ -1392,7 +1392,7 @@
   /* ---------- Confeti ---------- */
   const Confeti = (() => {
     const { ctx, tam } = lienzo($("#confeti"));
-    const COLORES = ["#e0457b", "#ff8fb0", "#c2185b", "#f8d7e0", "#d4af37", "#ffffff", "#b3123f"];
+    const COLORES = ["#d9303f", "#ff6b6b", "#a8102e", "#f6d0cc", "#d4af37", "#ffffff", "#8e0c24"];
     const parts = [];
     let corriendo = false;
     let ultimo = 0;
@@ -1470,8 +1470,8 @@
     const { ctx, tam } = lienzo($("#fx"));
     const R = (a, b) => a + Math.random() * (b - a);
     const movil = tam.W < 700;
-    const COL_PETALO = ["#f7c1d0", "#f3a6bc", "#fbd5df", "#e98aa6", "#f9e0e6"];
-    const COL_CORAZON = ["#e0457b", "#ff6f91", "#c2185b", "#f48fb1"];
+    const COL_PETALO = ["#e0505e", "#c62f3c", "#f08a86", "#b01d30", "#f4a8a2"]; // pétalos de rosa roja
+    const COL_CORAZON = ["#d9303f", "#ff5a5f", "#b01027", "#e8505b"];
     const parts = [];
 
     const petalo = (inicial) => ({
