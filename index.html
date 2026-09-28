@@ -49,13 +49,13 @@
   <nav class="nav" id="nav">
     <a href="#inicio" class="nav-marca" data-bind="marca"></a>
     <ul class="nav-links">
-      <li><a href="#carta">Carta</a></li>
-      <li><a href="#recuerdos">Recuerdos</a></li>
-      <li><a href="#historia">Historia</a></li>
-      <li><a href="#galeria">Galería</a></li>
-      <li><a href="#razones">Razones</a></li>
-      <li><a href="#musica">Música</a></li>
-      <li hidden><a href="#videos" id="nav-videos">Videos</a></li>
+      <li><a href="#carta" data-seccion="carta">Carta</a></li>
+      <li><a href="#agenda" data-seccion="agenda">Agenda</a></li>
+      <li><a href="#recuerdos" data-seccion="recuerdos">Recuerdos</a></li>
+      <li><a href="#galeria" data-seccion="galeria">Galería</a></li>
+      <li><a href="#razones" data-seccion="razones">Razones</a></li>
+      <li><a href="#musica" data-seccion="musica">Música</a></li>
+      <li><a href="#videos" data-seccion="videos">Videos</a></li>
       <li><a href="#final">Para ti</a></li>
     </ul>
     <button class="icono-btn" id="btn-modo" type="button">
@@ -65,7 +65,7 @@
   </nav>
 
   <main>
-    <!-- ============ 1. PORTADA ============ -->
+    <!-- ============ PORTADA ============ -->
     <header class="hero" id="inicio">
       <div class="hero-bg" id="hero-bg"></div>
       <div class="hero-overlay"></div>
@@ -99,28 +99,44 @@
       </div>
     </section>
 
-    <!-- ============ 2. CARTA ============ -->
+    <!-- ============ CARTA ============ -->
     <section class="carta" id="carta">
       <div class="contenedor">
         <div class="titulo-seccion" data-reveal>
-          <span class="eyebrow">Capítulo I</span>
+          <span class="eyebrow" data-capitulo></span>
           <h2>Una carta para ti</h2>
           <div class="ornamento"><span></span>❤<span></span></div>
         </div>
         <article class="papel" id="papel" data-reveal>
           <div class="carta-cabecera"><span id="carta-para"></span><span id="carta-fecha"></span></div>
+          <p class="carta-pista" id="carta-pista">Toca la carta para leerla completa</p>
           <div class="carta-contenido" id="carta-contenido"></div>
           <p class="carta-firma" id="carta-firma"></p>
-          <p class="carta-pista" id="carta-pista">Toca la carta para leerla completa</p>
         </article>
       </div>
     </section>
 
-    <!-- ============ 3. CARRUSELES ============ -->
-    <section class="recuerdos seccion-alt" id="recuerdos">
+    <!-- ============ AGENDA DE MOMENTOS ============ -->
+    <section class="agenda seccion-alt" id="agenda">
       <div class="contenedor">
         <div class="titulo-seccion" data-reveal>
-          <span class="eyebrow">Capítulo II</span>
+          <span class="eyebrow" data-capitulo></span>
+          <h2>Nuestra agenda de momentos</h2>
+          <p>Cada fecha que no quiero olvidar, cada carta y cada poema.</p>
+        </div>
+        <div class="agenda-controles" data-reveal>
+          <div class="filtros" id="agenda-filtros"></div>
+          <div class="agenda-anios" id="agenda-anios"></div>
+        </div>
+        <div class="agenda-libro" id="agenda-lista"></div>
+      </div>
+    </section>
+
+    <!-- ============ CARRUSELES (aparecen si hay fotos) ============ -->
+    <section class="recuerdos" id="recuerdos" hidden>
+      <div class="contenedor">
+        <div class="titulo-seccion" data-reveal>
+          <span class="eyebrow" data-capitulo></span>
           <h2>Nuestros recuerdos</h2>
           <div class="ornamento"><span></span>❤<span></span></div>
         </div>
@@ -128,23 +144,11 @@
       </div>
     </section>
 
-    <!-- ============ 4. LÍNEA DEL TIEMPO ============ -->
-    <section class="historia" id="historia">
+    <!-- ============ GALERÍA (aparece si hay fotos) ============ -->
+    <section class="galeria seccion-alt" id="galeria" hidden>
       <div class="contenedor">
         <div class="titulo-seccion" data-reveal>
-          <span class="eyebrow">Capítulo III</span>
-          <h2>Nuestros momentos especiales</h2>
-          <div class="ornamento"><span></span>❤<span></span></div>
-        </div>
-        <ol class="timeline" id="timeline"></ol>
-      </div>
-    </section>
-
-    <!-- ============ 5. GALERÍA ============ -->
-    <section class="galeria seccion-alt" id="galeria">
-      <div class="contenedor">
-        <div class="titulo-seccion" data-reveal>
-          <span class="eyebrow">Capítulo IV</span>
+          <span class="eyebrow" data-capitulo></span>
           <h2>Nuestra galería</h2>
           <p>Toca cualquier foto para verla en grande</p>
         </div>
@@ -153,11 +157,11 @@
       </div>
     </section>
 
-    <!-- ============ 6. RAZONES ============ -->
+    <!-- ============ RAZONES ============ -->
     <section class="razones" id="razones">
       <div class="contenedor">
         <div class="titulo-seccion" data-reveal>
-          <span class="eyebrow">Capítulo V</span>
+          <span class="eyebrow" data-capitulo></span>
           <h2><span id="razones-total">100</span> razones por las que te amo</h2>
           <p id="razones-progreso"></p>
         </div>
@@ -169,24 +173,36 @@
       </div>
     </section>
 
-    <!-- ============ 7. MÚSICA ============ -->
+    <!-- ============ MÚSICA ============ -->
     <section class="musica" id="musica">
       <div class="contenedor">
         <div class="titulo-seccion" data-reveal>
-          <span class="eyebrow">Capítulo VI</span>
-          <h2>Nuestra canción</h2>
+          <span class="eyebrow" data-capitulo></span>
+          <h2>Nuestras canciones</h2>
+          <p class="musica-dedicatoria" id="musica-dedicatoria"></p>
         </div>
         <div class="reproductor" data-reveal>
-          <div class="vinilo"><div class="vinilo-label" id="vinilo-label"></div></div>
+          <div class="pantalla">
+            <div class="yt-marco" id="yt-marco" hidden><div id="yt-player"></div></div>
+            <div class="vinilo" id="vinilo"><div class="vinilo-label" id="vinilo-label"></div></div>
+          </div>
           <div class="rep-info">
             <p class="rep-dedicatoria" id="rep-dedicatoria"></p>
             <h3 id="rep-titulo"></h3>
             <p class="rep-artista" id="rep-artista"></p>
             <div class="rep-controles">
+              <button class="ctrl" id="btn-prev" type="button" aria-label="Canción anterior">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2.2v14H6zM19 5v14L9.5 12z"/></svg>
+              </button>
               <button class="play" id="btn-play" type="button" aria-label="Reproducir o pausar">
                 <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
                 <svg class="ico-pausa" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
               </button>
+              <button class="ctrl" id="btn-next" type="button" aria-label="Canción siguiente">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.8 5H18v14h-2.2zM5 5v14l9.5-7z"/></svg>
+              </button>
+            </div>
+            <div class="rep-progreso">
               <span class="tiempo" id="tiempo-actual">0:00</span>
               <div class="barra" id="barra"><div class="barra-progreso" id="barra-progreso"></div></div>
               <span class="tiempo" id="tiempo-total">0:00</span>
@@ -194,21 +210,26 @@
             <div class="ecualizador" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
           </div>
         </div>
+        <ol class="playlist" id="playlist" data-reveal></ol>
+        <div class="playlist-pie">
+          <button class="btn btn-borde btn-claro" id="playlist-mas" type="button" hidden></button>
+          <a class="playlist-enlace" id="playlist-enlace" target="_blank" rel="noopener" hidden>Ver nuestra lista en YouTube ↗</a>
+        </div>
       </div>
     </section>
 
-    <!-- ============ VIDEOS (se muestra solo si agregas videos) ============ -->
+    <!-- ============ VIDEOS (aparece si agregas videos) ============ -->
     <section class="videos seccion-alt" id="videos" hidden>
       <div class="contenedor">
         <div class="titulo-seccion" data-reveal>
-          <span class="eyebrow">Capítulo VII</span>
+          <span class="eyebrow" data-capitulo></span>
           <h2>Recuerdos en movimiento</h2>
         </div>
         <div class="videos-grid" id="videos-grid"></div>
       </div>
     </section>
 
-    <!-- ============ 9. CIERRE ============ -->
+    <!-- ============ CIERRE ============ -->
     <footer class="final" id="final">
       <div class="contenedor">
         <div class="final-foto polaroid" id="final-foto" data-reveal></div>
@@ -221,6 +242,22 @@
       </div>
     </footer>
   </main>
+
+  <!-- ============ LECTOR DE CARTAS Y POEMAS ============ -->
+  <div class="lector" id="lector" role="dialog" aria-modal="true" aria-labelledby="lector-titulo">
+    <button class="lb-btn lector-cerrar" id="lector-cerrar" type="button" aria-label="Cerrar">✕</button>
+    <article class="lector-hoja">
+      <span class="eyebrow" id="lector-tipo"></span>
+      <h3 id="lector-titulo"></h3>
+      <p class="lector-fecha" id="lector-fecha"></p>
+      <div class="lector-texto" id="lector-texto"></div>
+    </article>
+    <div class="lector-nav">
+      <button type="button" id="lector-prev">‹ Anterior</button>
+      <span id="lector-contador"></span>
+      <button type="button" id="lector-next">Siguiente ›</button>
+    </div>
+  </div>
 
   <!-- ============ LIGHTBOX ============ -->
   <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada">

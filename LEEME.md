@@ -1,8 +1,8 @@
 # 💌 Página romántica
 
-Una carta de amor interactiva: sobre animado, portada cinematográfica, contador de tiempo juntos, carta con escritura automática, carruseles tipo polaroid, línea del tiempo, galería con filtros y vista ampliada, 100 razones en tarjetas que giran, reproductor de música, videos, cierre con confeti y modo nocturno.
+Una carta de amor interactiva: sobre animado, portada cinematográfica, contador de tiempo juntos, carta con escritura automática, **agenda de momentos** con cartas y poemas, carruseles tipo polaroid, galería con filtros, 100 razones en tarjetas que giran, **lista de canciones de YouTube**, videos, cierre con confeti y modo nocturno.
 
-No necesita instalar nada: **abre `index.html` con doble clic**.
+Publicada en: **https://mariaantonia15.github.io/Feliz-cumple-mi-amor/**
 
 ---
 
@@ -10,53 +10,56 @@ No necesita instalar nada: **abre `index.html` con doble clic**.
 
 Todo se cambia en **`config.js`** (ábrelo con el Bloc de notas o VS Code).
 
-| Quiero cambiar…            | Dónde, dentro de `config.js`            |
-|----------------------------|-----------------------------------------|
-| Nombres                    | `pareja`                                |
-| Fecha del contador         | `fechaInicio` → `"2023-02-14 20:00"`    |
-| Portada                    | `hero`                                  |
-| Carta                      | `carta.parrafos`                        |
-| Fotos del carrusel         | `carruseles[].fotos`                    |
-| Crear otro carrusel        | copia un bloque `{ titulo, fotos }` dentro de `carruseles` |
-| Línea del tiempo           | `lineaDeTiempo`                         |
-| Galería y categorías       | `galeria`                               |
-| Las 100 razones            | `razones`                               |
-| Canción                    | `musica`                                |
-| Videos                     | `videos` (la sección aparece sola)      |
-| Cierre y firma             | `final`                                 |
-| Apagar efectos             | `efectos`                               |
-| Abrir en modo nocturno     | `modoNocturnoPorDefecto: true`          |
+| Quiero cambiar…                 | Dónde, dentro de `config.js`                       |
+|---------------------------------|----------------------------------------------------|
+| Nombres                         | `pareja`                                           |
+| Día en que nos hicimos novios   | `fechaInicio` → `"2023-11-23 17:45"`               |
+| Portada                         | `hero`                                             |
+| Carta principal                 | `carta.deLaAgenda` (usa una carta de la agenda)    |
+| **Momentos, cartas y poemas**   | `agenda`                                           |
+| Fotos del carrusel              | `carruseles[].fotos`                               |
+| Galería y categorías            | `galeria`                                          |
+| Las 100 razones                 | `razones`                                          |
+| **Canciones**                   | `musica.canciones`                                 |
+| Videos                          | `videos` (la sección aparece sola)                 |
+| Cierre y firma                  | `final`                                            |
+| Apagar efectos                  | `efectos`                                          |
+| Abrir en modo nocturno          | `modoNocturnoPorDefecto: true`                     |
 
-Los títulos de las secciones ("Una carta para ti", "Capítulo II"…) están en `index.html`.
-Los colores están al principio de `styles.css`.
+### 📖 Agregar un recuerdo a la agenda
+Copia un bloque dentro de `agenda` y cámbialo. Se ordena solo por fecha:
+```js
+{ tipo: "momento", fecha: "2024-02-14", icono: "🌷", titulo: "…", texto: "…" },
+{ tipo: "poema",   fecha: "2026-10-01", titulo: "…", texto: `
+Primera línea
+segunda línea
+
+Nueva estrofa
+` },
+```
+- `tipo`: `"momento"`, `"carta"` o `"poema"`.
+- `fecha`: `"AAAA-MM-DD"`. Si no sabes el día exacto, usa `"AAAA-MM"` o agrega `fechaTexto: "Verano 2024"`.
+- Opcionales: `hora: "17:45"`, `foto: "fotos/…jpg"`, `destacado: true`.
+- Las cartas y poemas van entre comillas invertidas `` ` `` y pueden tener varias líneas.
 
 ### 📸 Fotos
-1. Copia tus fotos en la carpeta **`fotos/`**.
-2. Usa los mismos nombres que están en `config.js` (`portada.jpg`, `recuerdo-1.jpg`…) **o** cambia los nombres en `config.js`.
-3. Mientras falte una foto, verás un marco rosado con el nombre del archivo que falta.
+Cópialas en **`fotos/`** con los nombres de `config.js`. Las fotos que falten **no se muestran**, así que puedes agregarlas poco a poco. Para ver dónde faltan, pon `mostrarFotosPendientes: true`.
 
-Consejo: reduce las fotos a ~1600 px de ancho (por ejemplo con squoosh.app) para que la página cargue rápido.
-Las mayúsculas importan: `Foto.JPG` no es lo mismo que `foto.jpg`.
+Consejo: reduce las fotos a ~1600 px de ancho (por ejemplo con squoosh.app). Las mayúsculas importan: `Foto.JPG` no es lo mismo que `foto.jpg`.
 
-### 🎵 Música
-Copia tu canción en **`musica/nuestra-cancion.mp3`** (o cambia `musica.archivo`).
-La música empieza al abrir el sobre (los navegadores no permiten que suene sola antes de un toque).
+### 🎵 Canciones
+La música viene de la lista de YouTube **"me recuerdan a ti"** (`musica.listaYoutube`). La página la lee cada vez que se abre: **para agregar una canción, solo agrégala a esa lista en YouTube**. La lista debe estar como pública o no listada.
 
-### 🎬 Videos
-Copia tus videos en `videos/` y agrégalos en `config.js`:
+Si algún día prefieres canciones sueltas, borra `listaYoutube` y usa:
 ```js
-videos: [
-  { archivo: "videos/playa.mp4", titulo: "Nuestro viaje" },
-  { youtube: "CODIGO_DEL_VIDEO", titulo: "Nuestra canción en vivo" }
+canciones: [
+  { youtube: "https://www.youtube.com/watch?v=…", titulo: "…", artista: "…", dedicatoria: "…" },
 ],
 ```
-Los videos de YouTube a veces no se ven con el archivo abierto en tu computador; se ven bien cuando la página está publicada en internet.
+YouTube solo suena con la página publicada (GitHub Pages). Si abres `index.html` directamente en tu computador verás "Error 153": es normal.
+Algunas canciones oficiales no permiten reproducirse fuera de YouTube; para esas aparece el botón ↗ que las abre en YouTube.
 
 ---
 
-## 🌐 Cómo compartirla (gratis)
-
-- **Netlify Drop**: entra a https://app.netlify.com/drop y arrastra la carpeta completa `pagina-romantica`. Te da un enlace para enviar.
-- **GitHub Pages**: sube la carpeta a un repositorio y activa Pages en la configuración.
-
-Envía el enlace desde el celular para probarla antes de dársela 😉
+## 🌐 Subir cambios a GitHub
+En el repositorio: **Add file → Upload files**, arrastra los archivos que cambiaste y toca **Commit changes**. GitHub Pages se actualiza en 1–2 minutos.

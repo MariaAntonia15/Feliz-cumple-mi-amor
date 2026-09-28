@@ -1,2 +1,6 @@
-Copia aquí su canción con el nombre: nuestra-cancion.mp3
-(o cambia "archivo" dentro de "musica" en config.js)
+Las canciones se agregan en config.js, en "musica" -> "canciones".
+Lo más fácil es pegar el enlace de YouTube:
+    { youtube: "https://www.youtube.com/watch?v=XXXXXXXXXXX", titulo: "…", artista: "…" },
+
+Si prefieres un archivo propio, cópialo aquí y usa:
+    { archivo: "musica/cancion.mp3", titulo: "…", artista: "…" },

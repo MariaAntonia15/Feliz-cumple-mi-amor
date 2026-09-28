@@ -1,8 +1,15 @@
-Copia aquí tus fotos con estos nombres (o cambia los nombres en config.js):
+Copia aquí tus fotos. Las que no existan simplemente no se muestran,
+así que puedes ir agregándolas poco a poco.
 
-portada.jpg            -> foto principal (horizontal)
-recuerdo-1.jpg ... recuerdo-6.jpg   -> carrusel
-historia-1.jpg ... historia-5.jpg   -> línea del tiempo
-galeria-1.jpg  ... galeria-12.jpg   -> galería
-portada-cancion.jpg    -> disco de la música (cuadrada)
-final.jpg              -> foto del cierre
+portada.jpg              -> fondo de la portada (horizontal)
+recuerdo-1.jpg ... recuerdo-6.jpg   -> carrusel (solo aparece si hay al menos una)
+    1 = primera cita   2 = viaje a Jardín   3 = la rosa
+    4 = el día que dijiste que sí   5 = primer aniversario   6 = segundo aniversario
+galeria-1.jpg  ... galeria-12.jpg   -> galería (solo aparece si hay al menos una)
+final.jpg                -> foto del cierre
+
+Fotos en la agenda: en config.js, agrega  foto: "fotos/nombre.jpg",
+al momento que quieras. Ejemplo:
+    { tipo: "momento", fecha: "2023-09-07", foto: "fotos/jardin.jpg", ... }
+
+Para ver dónde faltan fotos, pon  mostrarFotosPendientes: true  en config.js.

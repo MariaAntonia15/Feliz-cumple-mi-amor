@@ -12,6 +12,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const pendientes = C.mostrarFotosPendientes === true;
   const efectos = Object.assign(
     { petalos: true, corazones: true, brillos: true, corazonesAlTocar: true, confeti: true },
     C.efectos
@@ -33,18 +34,76 @@
   }
 
   let toastTimer;
-  function toast(msg) {
+  function toast(msg, ms = 3600) {
     const t = $("#toast");
     t.textContent = msg;
     t.classList.add("visible");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove("visible"), 3400);
+    toastTimer = setTimeout(() => t.classList.remove("visible"), ms);
   }
 
-  /* ---------- Marco de reemplazo cuando falta una foto ---------- */
+  const pad = (n) => String(n).padStart(2, "0");
+  const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const escXml = (s) => String(s).replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" }[c]));
+
+  /* ---------- Fechas ---------- */
+  const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+  function parseFecha(str) {
+    const [f, t = "00:00"] = String(str || "").trim().split(/[T ]/);
+    const [Y, M, D] = f.split("-").map(Number);
+    const [hh = 0, mm = 0] = t.split(":").map(Number);
+    return new Date(Y, (M || 1) - 1, D || 1, hh, mm);
+  }
+  function hoyISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function partesFecha(f) {
+    const iso = f === "hoy" ? hoyISO() : String(f || "");
+    const [y, m, d] = iso.split("-").map(Number);
+    return { iso, y: y || null, m: m || null, d: d || null };
+  }
+  function fechaLarga(f) {
+    const { y, m, d } = partesFecha(f);
+    if (d) return `${d} de ${MESES[m - 1]} de ${y}`;
+    if (m) return `${MESES[m - 1]} de ${y}`;
+    return y ? String(y) : "";
+  }
+  function formatoHora(h) {
+    const [hh, mm = 0] = String(h).split(":").map(Number);
+    return `${((hh + 11) % 12) + 1}:${pad(mm)} ${hh >= 12 ? "p.m." : "a.m."}`;
+  }
+  const diasJuntos = () => Math.max(0, Math.floor((Date.now() - parseFecha(C.fechaInicio)) / 864e5));
+  const reemplazar = (t) => String(t || "").replace(/\{dias\}/g, diasJuntos().toLocaleString("es"));
+
+  /* ---------- Textos con formato (**negrita**, *cursiva*) ---------- */
+  const inline = (t) => escHtml(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>");
+  const sinMarcas = (t) => String(t).replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
+
+  // Poemas: estrofas separadas por línea en blanco. Cartas: cada línea es un párrafo.
+  function bloquesTexto(texto, tipo) {
+    const t = reemplazar(texto).replace(/\r/g, "").trim();
+    if (!t) return [];
+    if (tipo === "poema") return t.split(/\n\s*\n/).map((s) => s.split("\n").map((l) => l.trim()).filter(Boolean));
+    return t.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => [l]);
+  }
+  function renderTexto(cont, texto, tipo) {
+    cont.innerHTML = bloquesTexto(texto, tipo).map((ls) => `<p>${ls.map(inline).join("<br>")}</p>`).join("");
+  }
+  function extractoHTML(texto, tipo) {
+    const b = bloquesTexto(texto, tipo);
+    if (tipo === "poema") return `<p>${b.flat().slice(0, 4).map(inline).join("<br>")}…</p>`;
+    let s = sinMarcas(b.map((x) => x.join(" ")).join(" "));
+    if (s.length > 240) { s = s.slice(0, 240); s = s.slice(0, s.lastIndexOf(" ")) + "…"; }
+    return `<p>${escHtml(s)}</p>`;
+  }
+
+  /* ---------- Fotos ---------- */
   const PALETAS = [["#f9d3de", "#e58fa8"], ["#fbe1d4", "#e3969f"], ["#f1d6ef", "#c687b6"], ["#fde4e1", "#d9667f"], ["#f6e3c8", "#d7a15f"]];
   const FORMAS = { retrato: [800, 1000], paisaje: [1600, 1000], cuadrada: [900, 900], alta: [800, 1200] };
-  const escXml = (s) => String(s).replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" }[c]));
 
   function placeholder(ruta, w, h, seed) {
     const [a, b] = PALETAS[Math.abs(seed) % PALETAS.length];
@@ -63,21 +122,80 @@
     return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
-  function crearImg(src, alt, seed = 0, forma = "retrato") {
+  // Si la foto no existe: marco rosado (mostrarFotosPendientes) o se quita sin dejar hueco.
+  function crearImg(src, alt, seed = 0, forma = "retrato", alFaltar) {
     const [w, h] = FORMAS[forma] || FORMAS.retrato;
     const img = new Image();
     img.alt = alt || "";
     img.decoding = "async";
     img.loading = "lazy";
     img.draggable = false;
-    if (!src) { img.src = placeholder("", w, h, seed); return img; }
-    img.onerror = () => { img.onerror = null; img.src = placeholder(src, w, h, seed); };
+    const faltante = () => {
+      if (pendientes) img.src = placeholder(src || "", w, h, seed);
+      else if (alFaltar) alFaltar(img);
+      else img.remove();
+    };
+    if (!src) { if (pendientes) faltante(); else queueMicrotask(faltante); return img; }
+    img.onerror = () => { img.onerror = null; faltante(); };
     img.src = src;
     return img;
   }
 
+  const cacheImg = new Map();
+  function existeImagen(src) {
+    if (!src) return Promise.resolve(false);
+    if (!cacheImg.has(src)) {
+      cacheImg.set(src, new Promise((res) => {
+        const im = new Image();
+        im.onload = () => res(true);
+        im.onerror = () => res(false);
+        im.src = src;
+      }));
+    }
+    return cacheImg.get(src);
+  }
+  async function conFoto(lista) {
+    if (pendientes) return lista;
+    const ok = await Promise.all(lista.map((x) => existeImagen(x.foto)));
+    return lista.filter((_, i) => ok[i]);
+  }
+
   const ICONO_IZQ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
   const ICONO_DER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+
+  /* ---------- Aparición al hacer scroll ---------- */
+  let ioRevelar = null;
+  function iniciarRevelado() {
+    const els = $$("[data-reveal]");
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      els.forEach((e) => e.classList.add("visible"));
+      return;
+    }
+    ioRevelar = new IntersectionObserver((entradas) => {
+      entradas.forEach((e) => {
+        if (e.isIntersecting) { e.target.classList.add("visible"); ioRevelar.unobserve(e.target); }
+      });
+    }, { threshold: 0, rootMargin: "0px 0px -8% 0px" });
+    els.forEach((e) => ioRevelar.observe(e));
+  }
+  function observarRevelado(raiz) {
+    const els = raiz.matches && raiz.matches("[data-reveal]") ? [raiz, ...$$("[data-reveal]", raiz)] : $$("[data-reveal]", raiz);
+    els.forEach((e) => { if (ioRevelar) ioRevelar.observe(e); else e.classList.add("visible"); });
+  }
+
+  /* ---------- Menú y números de capítulo según las secciones visibles ---------- */
+  function sincronizarSecciones() {
+    $$(".nav-links a[data-seccion]").forEach((a) => {
+      const s = document.getElementById(a.dataset.seccion);
+      a.parentElement.hidden = !s || s.hidden;
+    });
+    const ROM = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+    let n = 0;
+    $$("[data-capitulo]").forEach((e) => {
+      const s = e.closest("section");
+      if (s && !s.hidden) e.textContent = "Capítulo " + (ROM[n++] || n);
+    });
+  }
 
   /* ---------- Textos generales ---------- */
   function rellenarTextos() {
@@ -108,7 +226,7 @@
     });
   }
 
-  /* ---------- 1. Portada ---------- */
+  /* ---------- Portada ---------- */
   function prepararHero() {
     const h = C.hero || {};
     const img = crearImg(h.foto, "Nuestra foto", 1, "paisaje");
@@ -131,13 +249,6 @@
   const arrancarHero = () => $(".hero").classList.add("animar");
 
   /* ---------- Contador ---------- */
-  function parseFecha(str) {
-    const [f, t = "00:00"] = String(str || "").trim().split(/[T ]/);
-    const [Y, M, D] = f.split("-").map(Number);
-    const [hh = 0, mm = 0] = t.split(":").map(Number);
-    return new Date(Y, (M || 1) - 1, D || 1, hh, mm);
-  }
-
   function diferencia(a, b) {
     let y = b.getFullYear() - a.getFullYear();
     let m = b.getMonth() - a.getMonth();
@@ -156,7 +267,6 @@
   function iniciarContador() {
     const inicio = parseFecha(C.fechaInicio);
     if (isNaN(inicio)) return;
-    const pad = (n) => String(n).padStart(2, "0");
     $("#contador-fecha").textContent = `${pad(inicio.getDate())}/${pad(inicio.getMonth() + 1)}/${inicio.getFullYear()}`;
     const campos = { y: "#c-anios", m: "#c-meses", d: "#c-dias", h: "#c-horas", mi: "#c-minutos", s: "#c-segundos" };
     const nodos = Object.fromEntries(Object.entries(campos).map(([k, s]) => [k, $(s)]));
@@ -170,19 +280,34 @@
     setInterval(tick, 1000);
   }
 
-  /* ---------- 2. Carta con escritura automática ---------- */
+  /* ---------- Carta con escritura automática ---------- */
   function iniciarCarta() {
     const c = C.carta || {};
+    let saludo = c.saludo;
+    let parrafos = c.parrafos || [];
+    let despedida = c.despedida;
+    let fecha = c.fecha;
+    if (c.deLaAgenda) {
+      const e = (C.agenda || []).find((x) => x.id === c.deLaAgenda);
+      if (e) {
+        saludo = e.titulo;
+        parrafos = bloquesTexto(e.texto, "carta").map((ls) => sinMarcas(ls.join(" ")));
+        despedida = null;
+        fecha = fecha || fechaLarga(e.fecha);
+      }
+    }
+    if (!saludo && !parrafos.length) { $("#carta").hidden = true; return; }
+
     const papel = $("#papel");
     const cont = $("#carta-contenido");
     $("#carta-para").textContent = c.para || "";
-    $("#carta-fecha").textContent = c.fecha || "";
+    $("#carta-fecha").textContent = fecha || "";
     $("#carta-firma").textContent = c.firma || "";
 
     const bloques = [
-      { cls: "carta-saludo", texto: c.saludo },
-      ...(c.parrafos || []).map((t) => ({ cls: "", texto: t })),
-      { cls: "carta-despedida", texto: c.despedida }
+      { cls: "carta-saludo", texto: saludo },
+      ...parrafos.map((t) => ({ cls: "", texto: t })),
+      { cls: "carta-despedida", texto: despedida }
     ].filter((b) => b.texto);
 
     // El texto "fantasma" reserva el espacio para que la carta no salte al escribirse
@@ -205,7 +330,7 @@
       papel.classList.add("terminada");
       $("#carta-pista").classList.add("oculta");
     };
-    const vel = c.velocidadEscritura || 32;
+    const vel = c.velocidadEscritura || 22;
     const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
     async function escribir() {
@@ -216,10 +341,10 @@
           n.typed.textContent = n.chars.slice(0, i).join("");
           n.ghost.textContent = n.chars.slice(i).join("");
           const ch = n.chars[i - 1];
-          await esperar(/[.!?…]/.test(ch) ? vel * 9 : /[,;:]/.test(ch) ? vel * 5 : vel);
+          await esperar(/[.!?…]/.test(ch) ? vel * 7 : /[,;:]/.test(ch) ? vel * 4 : vel);
         }
         n.p.classList.remove("escribiendo");
-        await esperar(vel * 12);
+        await esperar(vel * 10);
       }
       terminar();
     }
@@ -235,20 +360,198 @@
         iniciado = true;
         setTimeout(escribir, 700);
       }
-    }, { threshold: 0.35 });
+    }, { threshold: 0, rootMargin: "0px 0px -30% 0px" });
     io.observe(papel);
   }
 
-  /* ---------- 3. Carruseles ---------- */
-  function iniciarCarruseles() {
+  /* ---------- Agenda de momentos ---------- */
+  const TIPOS = {
+    momento: { nombre: "Momento", plural: "Momentos", icono: "✨" },
+    carta:   { nombre: "Carta",   plural: "Cartas",   icono: "💌" },
+    poema:   { nombre: "Poema",   plural: "Poemas",   icono: "🖋️" }
+  };
+  const tipoDe = (e) => (TIPOS[e.tipo] ? e.tipo : "momento");
+  const lecturas = [];
+
+  function iniciarAgenda() {
+    const lista = (C.agenda || [])
+      .map((e, i) => ({ ...e, _i: i, _p: partesFecha(e.fecha), _orden: e.fecha === "hoy" ? "9999" : partesFecha(e.fecha).iso }))
+      .sort((a, b) => (a._orden < b._orden ? -1 : a._orden > b._orden ? 1 : a._i - b._i)); // "hoy" siempre al final
+    if (!lista.length) { $("#agenda").hidden = true; return; }
+
+    const cont = $("#agenda-lista");
+    const anios = $("#agenda-anios");
+    const filtros = $("#agenda-filtros");
+    lista.filter((e) => tipoDe(e) !== "momento").forEach((e) => lecturas.push(e));
+
+    const grupos = new Map();
+    lista.forEach((e) => {
+      const y = e._p.y || "Sin fecha";
+      if (!grupos.has(y)) grupos.set(y, []);
+      grupos.get(y).push(e);
+    });
+
+    const paginas = [];
+    for (const [y, entradas] of grupos) {
+      const contador = el("small", {});
+      const sec = el("div", { class: "agenda-anio", id: `agenda-${y}` },
+        el("h3", { class: "agenda-anio-titulo" }, el("span", {}, String(y)), contador));
+      const nodos = entradas.map(crearEntrada);
+      sec.append(...nodos);
+      cont.append(sec);
+      const chip = el("a", { href: `#agenda-${y}` }, String(y));
+      anios.append(chip);
+      paginas.push({ sec, chip, nodos, contador });
+    }
+
+    const actualizarConteos = () => paginas.forEach((p) => {
+      const n = p.nodos.filter((x) => !x.classList.contains("oculta")).length;
+      p.contador.textContent = `${n} ${n === 1 ? "recuerdo" : "recuerdos"}`;
+      p.sec.hidden = n === 0;
+      p.chip.hidden = n === 0;
+    });
+
+    const conteo = (t) => lista.filter((e) => tipoDe(e) === t).length;
+    const opciones = [{ id: "todo", nombre: "📖 Todo" },
+      ...Object.entries(TIPOS).filter(([k]) => conteo(k) > 0).map(([k, T]) => ({ id: k, nombre: `${T.icono} ${T.plural} · ${conteo(k)}` }))];
+    if (opciones.length > 2) {
+      opciones.forEach((o) => {
+        const b = el("button", { class: "filtro" + (o.id === "todo" ? " activo" : ""), type: "button", "aria-pressed": String(o.id === "todo") }, o.nombre);
+        b.addEventListener("click", () => {
+          $$(".filtro", filtros).forEach((x) => {
+            x.classList.toggle("activo", x === b);
+            x.setAttribute("aria-pressed", String(x === b));
+          });
+          paginas.forEach((p) => p.nodos.forEach((n) => n.classList.toggle("oculta", o.id !== "todo" && n.dataset.tipo !== o.id)));
+          actualizarConteos();
+        });
+        filtros.append(b);
+      });
+    }
+    actualizarConteos();
+    iniciarLector();
+  }
+
+  function crearEntrada(e) {
+    const tipo = tipoDe(e);
+    const T = TIPOS[tipo];
+    const p = e._p;
+    const aprox = Boolean(e.fechaTexto) || !p.d;
+
+    const fecha = el("div", { class: "entrada-fecha" + (aprox ? " aprox" : "") });
+    if (aprox) {
+      fecha.append(el("span", { class: "ef-icono" }, e.icono || T.icono),
+        el("span", { class: "ef-texto" }, e.fechaTexto || (p.m ? `${MESES[p.m - 1]} ${p.y}` : String(p.y || ""))));
+    } else {
+      fecha.append(el("span", { class: "ef-mes" }, MESES_CORTOS[p.m - 1]),
+        el("span", { class: "ef-dia" }, String(p.d)),
+        el("span", { class: "ef-semana" }, e.fecha === "hoy" ? "hoy" : DIAS[new Date(p.y, p.m - 1, p.d).getDay()]));
+    }
+
+    const icono = tipo === "momento" ? (e.icono || T.icono) : T.icono;
+    const cuerpo = el("div", { class: "entrada-cuerpo" },
+      el("div", { class: "entrada-meta" },
+        el("span", { class: "chip-tipo" }, `${icono} ${T.nombre}`),
+        e.hora ? el("span", { class: "entrada-hora" }, "🕔 " + formatoHora(e.hora)) : null),
+      el("h4", {}, e.titulo || ""));
+
+    if (e.foto || pendientes) {
+      const marco = el("div", { class: "entrada-foto" });
+      marco.append(crearImg(e.foto, e.titulo, e._i, "paisaje", () => marco.remove()));
+      cuerpo.append(marco);
+    }
+
+    const texto = el("div", { class: "entrada-texto" });
+    const largo = tipo !== "momento" && reemplazar(e.texto).length > 320;
+    if (largo) texto.innerHTML = extractoHTML(e.texto, tipo);
+    else renderTexto(texto, e.texto, tipo === "poema" ? "poema" : "carta");
+    cuerpo.append(texto);
+
+    if (tipo !== "momento") {
+      const b = el("button", { class: "entrada-leer", type: "button" },
+        largo ? (tipo === "poema" ? "Leer poema completo" : "Leer carta completa") : "Abrir en grande", " →");
+      b.addEventListener("click", () => abrirLector(lecturas.indexOf(e)));
+      cuerpo.append(b);
+    }
+
+    return el("article", {
+      class: `entrada tipo-${tipo}` + (e.destacado ? " destacada" : ""),
+      "data-tipo": tipo,
+      "data-reveal": ""
+    }, fecha, cuerpo);
+  }
+
+  /* ---------- Lector de cartas y poemas ---------- */
+  let lectorIdx = 0;
+  let lectorFoco = null;
+  function iniciarLector() {
+    const lector = $("#lector");
+    $("#lector-cerrar").addEventListener("click", cerrarLector);
+    $("#lector-prev").addEventListener("click", () => moverLector(-1));
+    $("#lector-next").addEventListener("click", () => moverLector(1));
+    lector.addEventListener("click", (e) => { if (e.target === lector) cerrarLector(); });
+    document.addEventListener("keydown", (e) => {
+      if (!lector.classList.contains("abierto")) return;
+      if (e.key === "Escape") cerrarLector();
+      if (e.key === "ArrowLeft") moverLector(-1);
+      if (e.key === "ArrowRight") moverLector(1);
+    });
+  }
+  function pintarLector() {
+    const e = lecturas[lectorIdx];
+    if (!e) return;
+    const tipo = tipoDe(e);
+    $("#lector-tipo").textContent = `${TIPOS[tipo].icono} ${TIPOS[tipo].nombre}`;
+    $("#lector-titulo").textContent = e.titulo || "";
+    $("#lector-fecha").textContent = (e.fechaTexto || fechaLarga(e.fecha)) + (e.hora ? " · " + formatoHora(e.hora) : "");
+    const tx = $("#lector-texto");
+    tx.className = "lector-texto " + tipo;
+    renderTexto(tx, e.texto, tipo);
+    const varias = lecturas.length > 1;
+    $("#lector-prev").hidden = !varias;
+    $("#lector-next").hidden = !varias;
+    $("#lector-contador").textContent = varias ? `${lectorIdx + 1} de ${lecturas.length}` : "";
+    $("#lector").scrollTop = 0;
+  }
+  function abrirLector(i) {
+    if (i < 0) return;
+    lectorIdx = i;
+    lectorFoco = document.activeElement;
+    pintarLector();
+    $("#lector").classList.add("abierto");
+    document.body.classList.add("bloqueado");
+    $("#lector-cerrar").focus({ preventScroll: true });
+  }
+  function moverLector(d) {
+    if (lecturas.length < 2) return;
+    lectorIdx = (lectorIdx + d + lecturas.length) % lecturas.length;
+    pintarLector();
+  }
+  function cerrarLector() {
+    $("#lector").classList.remove("abierto");
+    document.body.classList.remove("bloqueado");
+    if (lectorFoco) lectorFoco.focus({ preventScroll: true });
+  }
+
+  /* ---------- Carruseles ---------- */
+  async function iniciarCarruseles() {
     const cont = $("#carruseles");
-    (C.carruseles || []).forEach((car, ci) => cont.append(crearCarrusel(car, ci)));
+    const listas = await Promise.all((C.carruseles || []).map((car) => conFoto(car.fotos || [])));
+    let hay = false;
+    (C.carruseles || []).forEach((car, ci) => {
+      if (!listas[ci].length) return;
+      hay = true;
+      cont.append(crearCarrusel({ ...car, fotos: listas[ci] }, ci));
+    });
+    const sec = $("#recuerdos");
+    sec.hidden = !hay;
+    if (hay) observarRevelado(sec);
   }
 
   function crearCarrusel(car, ci) {
     const fotos = car.fotos || [];
     const raiz = el("div", { class: "carrusel", "data-reveal": "" });
-    if (car.titulo && ci > 0 || car.subtitulo) {
+    if ((car.titulo && ci > 0) || car.subtitulo) {
       raiz.append(el("div", { class: "carrusel-cab" },
         ci > 0 && car.titulo ? el("h3", {}, car.titulo) : null,
         car.subtitulo ? el("p", {}, car.subtitulo) : null));
@@ -305,7 +608,6 @@
       pintar();
     }
 
-    // Movimiento automático
     const intervalo = car.intervalo || 5000;
     let timer = null;
     let pausado = false;
@@ -319,7 +621,6 @@
     stage.addEventListener("focusin", () => { pausado = true; });
     stage.addEventListener("focusout", () => { pausado = false; });
 
-    // Deslizar con el dedo / mouse
     let x0 = null;
     stage.addEventListener("pointerdown", (e) => { x0 = e.clientX; });
     stage.addEventListener("pointercancel", () => { x0 = null; });
@@ -340,7 +641,6 @@
     prev.addEventListener("click", () => { ir(actual - 1); reiniciar(); });
     next.addEventListener("click", () => { ir(actual + 1); reiniciar(); });
 
-    // Altura del escenario según la polaroid más alta
     const ajustarAltura = () => {
       const h = Math.max(0, ...slides.map((s) => s.offsetHeight));
       if (h) stage.style.height = (h + 16) + "px";
@@ -351,35 +651,26 @@
     }
     window.addEventListener("resize", ajustarAltura);
 
-    raiz.append(stage, el("div", { class: "carrusel-controles" }, prev, dots, next));
+    raiz.append(stage);
+    if (slides.length > 1) raiz.append(el("div", { class: "carrusel-controles" }, prev, dots, next));
     pintar();
     reiniciar();
     return raiz;
   }
 
-  /* ---------- 4. Línea del tiempo ---------- */
-  function iniciarLineaTiempo() {
-    const ol = $("#timeline");
-    (C.lineaDeTiempo || []).forEach((ev, i) => {
-      ol.append(el("li", { class: "tl-item", "data-reveal": "" },
-        el("span", { class: "tl-punto", "aria-hidden": "true" }, ev.icono || "❤"),
-        el("article", { class: "tl-card" },
-          ev.foto === null ? null : el("div", { class: "tl-foto" }, crearImg(ev.foto, ev.titulo, i + 2, "paisaje")),
-          el("div", { class: "tl-cuerpo" },
-            el("span", { class: "tl-fecha" }, ev.fecha || ""),
-            el("h3", {}, ev.titulo || ""),
-            el("p", {}, ev.descripcion || "")))));
-    });
-  }
-
-  /* ---------- 5. Galería con filtros ---------- */
-  function iniciarGaleria() {
+  /* ---------- Galería con filtros ---------- */
+  async function iniciarGaleria() {
     const g = C.galeria || {};
+    const sec = $("#galeria");
+    const fotos = await conFoto(g.fotos || []);
+    if (!fotos.length) { sec.hidden = true; return; }
+    sec.hidden = false;
+
     const filtros = $("#filtros");
     const grid = $("#galeria-grid");
     const formas = ["retrato", "cuadrada", "alta", "paisaje", "retrato", "alta"];
 
-    const items = (g.fotos || []).map((f, i) => {
+    const items = fotos.map((f, i) => {
       const img = crearImg(f.foto, f.titulo, i, f.forma || formas[i % formas.length]);
       const fig = el("figure", { class: "g-item", "data-cat": f.categoria, tabindex: "0", role: "button", "aria-label": "Ver foto: " + (f.titulo || (i + 1)) },
         img, f.titulo ? el("figcaption", {}, f.titulo) : null);
@@ -393,28 +684,31 @@
       return fig;
     });
 
-    const cats = [{ id: "todas", nombre: "✨ Todas" }, ...(g.categorias || [])];
-    cats.forEach((c) => {
-      const b = el("button", { class: "filtro" + (c.id === "todas" ? " activo" : ""), type: "button", "aria-pressed": String(c.id === "todas") }, c.nombre);
-      b.addEventListener("click", () => {
-        $$(".filtro", filtros).forEach((x) => {
-          x.classList.toggle("activo", x === b);
-          x.setAttribute("aria-pressed", String(x === b));
+    const cats = (g.categorias || []).filter((c) => fotos.some((f) => f.categoria === c.id));
+    if (cats.length > 1) {
+      [{ id: "todas", nombre: "✨ Todas" }, ...cats].forEach((c) => {
+        const b = el("button", { class: "filtro" + (c.id === "todas" ? " activo" : ""), type: "button", "aria-pressed": String(c.id === "todas") }, c.nombre);
+        b.addEventListener("click", () => {
+          $$(".filtro", filtros).forEach((x) => {
+            x.classList.toggle("activo", x === b);
+            x.setAttribute("aria-pressed", String(x === b));
+          });
+          let k = 0;
+          items.forEach((it) => {
+            const ok = c.id === "todas" || it.dataset.cat === c.id;
+            it.classList.toggle("oculto", !ok);
+            if (ok) {
+              it.style.animation = "none";
+              void it.offsetWidth; // reinicia la animación de entrada
+              it.style.animation = "";
+              it.style.animationDelay = (k++ % 6) * 0.06 + "s";
+            }
+          });
         });
-        let k = 0;
-        items.forEach((it) => {
-          const ok = c.id === "todas" || it.dataset.cat === c.id;
-          it.classList.toggle("oculto", !ok);
-          if (ok) {
-            it.style.animation = "none";
-            void it.offsetWidth; // reinicia la animación de entrada
-            it.style.animation = "";
-            it.style.animationDelay = (k++ % 6) * 0.06 + "s";
-          }
-        });
+        filtros.append(b);
       });
-      filtros.append(b);
-    });
+    }
+    observarRevelado(sec);
   }
 
   /* ---------- Lightbox ---------- */
@@ -488,9 +782,10 @@
     if (LB.foco) LB.foco.focus({ preventScroll: true });
   }
 
-  /* ---------- 6. Razones ---------- */
+  /* ---------- Razones ---------- */
   function iniciarRazones() {
     const R = C.razones || [];
+    if (!R.length) { $("#razones").hidden = true; return; }
     const grid = $("#razones-grid");
     const btnMas = $("#razones-mas");
     const btnAzar = $("#razones-azar");
@@ -548,14 +843,14 @@
 
     btnMas.addEventListener("click", () => mostrarHasta(mostradas + PASO));
     btnAzar.addEventListener("click", () => {
-      let pendientes = tarjetas.map((_, i) => i).filter((i) => !vistas.has(i));
-      if (!pendientes.length) {
+      let pendientesR = tarjetas.map((_, i) => i).filter((i) => !vistas.has(i));
+      if (!pendientesR.length) {
         if (mostradas >= R.length) { toast("Ya las descubriste todas… pero siempre habrá más ❤️"); return; }
         const desde = mostradas;
         mostrarHasta(mostradas + PASO);
-        pendientes = tarjetas.map((_, i) => i).slice(desde);
+        pendientesR = tarjetas.map((_, i) => i).slice(desde);
       }
-      const i = pendientes[Math.floor(Math.random() * pendientes.length)];
+      const i = pendientesR[Math.floor(Math.random() * pendientesR.length)];
       const t = tarjetas[i];
       t.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
       t.classList.add("destacada");
@@ -566,55 +861,325 @@
     actualizar();
   }
 
-  /* ---------- 7. Música ---------- */
+  /* ---------- Música: lista de YouTube o canciones sueltas ---------- */
+  function idYoutube(v) {
+    if (!v) return null;
+    const s = String(v).trim();
+    if (/^[\w-]{11}$/.test(s)) return s;
+    const m = s.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/);
+    return m ? m[1] : null;
+  }
+  function idLista(v) {
+    if (!v) return null;
+    const s = String(v).trim();
+    const m = s.match(/[?&]list=([\w-]+)/);
+    if (m) return m[1];
+    return /^(PL|OL|UU|FL|RD)[\w-]+$/.test(s) ? s : null;
+  }
+  // Quita "(Video Oficial)", "[Letra]", "| Lyrics"… de los títulos de YouTube
+  const RUIDO = /official|oficial|video|vídeo|videoclip|audio|lyric|letra|\bsub\b|subtitulad|visualizer|remaster|\bhd\b|4k/i;
+  function limpiarTitulo(t) {
+    const s = String(t || "").split(" | ")[0]
+      .replace(/[([]([^)\]]*)[)\]]/g, (todo, dentro) => (RUIDO.test(dentro) ? "" : todo))
+      .replace(/\*/g, "")
+      .replace(/\s{2,}/g, " ")
+      .replace(/\s+[-–—]\s*$/, "");
+    return s.trim();
+  }
+  const esCanalArtista = (a) => /\s-\sTopic$|VEVO$/i.test(a || "");
+  const limpiarAutor = (a) => String(a || "").replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim();
+
   function iniciarMusica() {
     const m = C.musica || {};
-    const audio = $("#audio");
-    let disponible = Boolean(m.archivo);
-
-    $("#rep-dedicatoria").textContent = m.dedicatoria || "";
-    $("#rep-titulo").textContent = m.titulo || "";
-    $("#rep-artista").textContent = m.artista || "";
-    $("#vinilo-label").append(crearImg(m.portada, "Portada de la canción", 3, "cuadrada"));
-
-    if (m.archivo) {
-      audio.src = m.archivo;
-      audio.loop = m.repetir !== false;
-      audio.volume = typeof m.volumen === "number" ? Math.min(1, Math.max(0, m.volumen)) : 0.6;
+    const listaId = idLista(m.listaYoutube);
+    let canciones = listaId ? [] : (m.canciones || [])
+      .map((c) => ({ ...c, yt: idYoutube(c.youtube) }))
+      .filter((c) => c.yt || c.archivo);
+    const sec = $("#musica");
+    if (!listaId && !canciones.length) {
+      sec.hidden = true;
+      return { activa: false, alAbrir() {} };
     }
-    audio.addEventListener("error", () => { disponible = false; });
 
-    const toggle = () => {
-      if (!disponible) {
-        toast(`🎵 Agrega tu canción en: ${m.archivo || "musica/nuestra-cancion.mp3"}`);
+    const audio = $("#audio");
+    const vol = typeof m.volumen === "number" ? Math.min(1, Math.max(0, m.volumen)) : 0.7;
+    audio.volume = vol;
+    let idx = 0;
+    let yt = null;
+    let ytListo = false;
+    let ytPendiente = false;
+    let errores = 0;
+    let ultimoError = 0;
+    let sonando = false;
+    let quiereSonar = false; // solo se salta de canción por error si alguien le dio play
+    let expandida = false;
+    const MAX_VISIBLES = 8;
+    const lista = $("#playlist");
+    const btnMas = $("#playlist-mas");
+    let pistas = [];
+    const actual = () => canciones[idx] || {};
+    const esYt = () => Boolean(listaId || actual().yt);
+
+    $("#musica-dedicatoria").textContent = m.dedicatoria || "";
+    if (listaId) {
+      const enlace = $("#playlist-enlace");
+      enlace.href = `https://www.youtube.com/playlist?list=${listaId}`;
+      enlace.hidden = false;
+    }
+
+    const estado = (on) => {
+      sonando = on;
+      document.body.classList.toggle("sonando", on);
+    };
+
+    function avisoLista(texto) {
+      lista.hidden = false;
+      lista.textContent = "";
+      lista.append(el("li", { class: "playlist-aviso" }, texto));
+      btnMas.hidden = true;
+    }
+
+    function pintarLista() {
+      lista.textContent = "";
+      pistas = canciones.map((c, i) => {
+        const b = el("button", { class: "pista", type: "button" },
+          el("span", { class: "pista-num" }, pad(i + 1)),
+          el("span", { class: "pista-info" }, el("strong", {}, c.titulo || `Canción ${i + 1}`), c.artista ? el("small", {}, c.artista) : null),
+          el("span", { class: "pista-eq", "aria-hidden": "true" }, el("i"), el("i"), el("i")));
+        b.addEventListener("click", () => (i === idx ? alternar() : ir(i)));
+        const href = c.yt ? `https://www.youtube.com/watch?v=${c.yt}${listaId ? "&list=" + listaId : ""}` : null;
+        lista.append(el("li", {}, b, href
+          ? el("a", { class: "pista-yt", href, target: "_blank", rel: "noopener", "aria-label": "Abrir en YouTube", title: "Abrir en YouTube" }, "↗")
+          : null));
+        return b;
+      });
+      const pocas = canciones.length < 2;
+      lista.hidden = pocas;
+      $("#btn-prev").hidden = pocas && !listaId;
+      $("#btn-next").hidden = pocas && !listaId;
+      marcar();
+    }
+
+    function marcar() {
+      pistas.forEach((p, i) => {
+        p.classList.toggle("activa", i === idx);
+        p.parentElement.hidden = !expandida && i >= MAX_VISIBLES && i !== idx;
+      });
+      const sobran = canciones.length > MAX_VISIBLES;
+      btnMas.hidden = !sobran;
+      btnMas.textContent = expandida ? "Ver menos" : `Ver las ${canciones.length} canciones`;
+    }
+    btnMas.addEventListener("click", () => { expandida = !expandida; marcar(); });
+
+    function mostrarInfo() {
+      const c = actual();
+      $("#rep-dedicatoria").textContent = c.dedicatoria || "";
+      $("#rep-titulo").textContent = c.titulo || (listaId ? (canciones.length ? `Canción ${idx + 1}` : "Nuestra lista") : `Canción ${idx + 1}`);
+      $("#rep-artista").textContent = c.artista || "";
+      $("#yt-marco").hidden = !esYt();
+      $("#vinilo").hidden = esYt();
+      const label = $("#vinilo-label");
+      label.textContent = "";
+      if (!esYt() && c.portada) label.append(crearImg(c.portada, "Portada", 3, "cuadrada"));
+      marcar();
+    }
+
+    const fmt = (s) => (isFinite(s) && s > 0 ? `${Math.floor(s / 60)}:${pad(Math.floor(s % 60))}` : "0:00");
+    function pintarProgreso(t, d) {
+      $("#barra-progreso").style.width = (d ? (t / d) * 100 : 0) + "%";
+      $("#tiempo-actual").textContent = fmt(t);
+      $("#tiempo-total").textContent = fmt(d);
+    }
+
+    // Nombres de las canciones (se consultan a YouTube)
+    async function completarTitulos() {
+      await Promise.all(canciones.map(async (c) => {
+        if (!c.yt || c.titulo) return;
+        try {
+          const r = await fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + c.yt));
+          if (!r.ok) return;
+          const j = await r.json();
+          c.titulo = limpiarTitulo(j.title) || c.titulo;
+          c.artista = esCanalArtista(j.author_name) ? limpiarAutor(j.author_name) : "";
+        } catch (e) { /* sin conexión: queda "Canción N" */ }
+      }));
+      pintarLista();
+      mostrarInfo();
+    }
+    function tituloDesdePlayer() {
+      const c = actual();
+      if (!c.yt || c.titulo || !yt.getVideoData) return;
+      const d = yt.getVideoData();
+      if (d && d.title) {
+        c.titulo = limpiarTitulo(d.title);
+        c.artista = esCanalArtista(d.author) ? limpiarAutor(d.author) : "";
+        pintarLista();
+        mostrarInfo();
+      }
+    }
+
+    // La lista se lee de YouTube cada vez que se abre la página:
+    // las canciones nuevas que agregues allá aparecen solas.
+    function leerLista(intento = 0) {
+      const ids = yt.getPlaylist && yt.getPlaylist();
+      if (ids && ids.length) {
+        canciones = ids.map((id) => ({ yt: id }));
+        const i = yt.getPlaylistIndex ? yt.getPlaylistIndex() : 0;
+        idx = i >= 0 ? i : 0;
+        pintarLista();
+        mostrarInfo();
+        completarTitulos();
         return;
       }
-      if (audio.paused) audio.play().catch(() => toast("Toca de nuevo para escuchar nuestra canción 🎵"));
+      if (intento < 30) setTimeout(() => leerLista(intento + 1), 500);
+      else avisoLista("No pude cargar la lista. Revisa en YouTube que esté como pública o no listada.");
+    }
+
+    // --- Reproductor de YouTube ---
+    function onReady() {
+      ytListo = true;
+      yt.setVolume(Math.round(vol * 100));
+      if (listaId) {
+        yt.setLoop(true);
+        if (m.aleatorio) yt.setShuffle(true);
+        leerLista();
+      }
+      if (ytPendiente) { ytPendiente = false; reproducir(false); }
+    }
+    function onStateChange(e) {
+      if (!esYt()) return;
+      if (listaId && canciones.length) {
+        const i = yt.getPlaylistIndex();
+        if (i >= 0 && i !== idx) { idx = i; mostrarInfo(); pintarProgreso(0, 0); }
+      }
+      if (e.data === 1) { errores = 0; estado(true); tituloDesdePlayer(); }
+      else if (e.data === 2) estado(false);
+      else if (e.data === 0) { estado(false); if (!listaId) siguiente(); }
+    }
+    function onError() {
+      estado(false);
+      if (!quiereSonar) return;
+      errores++;
+      ultimoError = Date.now();
+      toast(`“${actual().titulo || "Esta canción"}” no se puede reproducir aquí. Ábrela en YouTube con ↗`, 5000);
+      if (errores < Math.max(canciones.length, 1)) setTimeout(siguiente, 2500);
+    }
+    function cargarYoutube() {
+      if (!listaId && !canciones.some((c) => c.yt)) return;
+      if (listaId) avisoLista("Cargando nuestras canciones…");
+      const crear = () => {
+        const opciones = {
+          width: "100%",
+          height: "100%",
+          playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+          events: { onReady, onStateChange, onError }
+        };
+        if (listaId) Object.assign(opciones.playerVars, { listType: "playlist", list: listaId });
+        else opciones.videoId = (actual().yt ? actual() : canciones.find((c) => c.yt)).yt;
+        yt = new window.YT.Player("yt-player", opciones);
+      };
+      if (window.YT && window.YT.Player) { crear(); return; }
+      const previo = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { if (previo) previo(); crear(); };
+      document.head.append(el("script", { src: "https://www.youtube.com/iframe_api" }));
+    }
+    setInterval(() => {
+      if (ytListo && esYt() && sonando) pintarProgreso(yt.getCurrentTime(), yt.getDuration());
+    }, 500);
+
+    // --- Archivos propios ---
+    audio.addEventListener("play", () => { if (!esYt()) estado(true); });
+    audio.addEventListener("pause", () => { if (!esYt()) estado(false); });
+    audio.addEventListener("ended", () => siguiente());
+    audio.addEventListener("timeupdate", () => { if (!esYt()) pintarProgreso(audio.currentTime, audio.duration); });
+    audio.addEventListener("error", () => {
+      if (esYt() || !audio.getAttribute("src")) return;
+      estado(false);
+      toast(`🎵 No encuentro el archivo: ${actual().archivo}`);
+    });
+
+    // --- Controles ---
+    function reproducir(avisar = true) {
+      quiereSonar = true;
+      const c = actual();
+      if (esYt()) {
+        audio.pause();
+        if (!ytListo) { ytPendiente = true; return; }
+        if (listaId) yt.playVideo();
+        else {
+          const v = yt.getVideoData && yt.getVideoData().video_id;
+          if (v !== c.yt) yt.loadVideoById(c.yt); else yt.playVideo();
+        }
+        // En algunos celulares YouTube exige tocar el video la primera vez
+        if (avisar) setTimeout(() => {
+          const st = yt.getPlayerState();
+          if (quiereSonar && st !== 1 && st !== 3 && Date.now() - ultimoError > 4000) toast("Toca el video para que empiece la música 🎵");
+        }, 3500);
+      } else {
+        if (ytListo) yt.pauseVideo();
+        if (audio.getAttribute("src") !== c.archivo) audio.src = c.archivo;
+        audio.play().catch(() => toast("Toca de nuevo para escuchar nuestra canción 🎵"));
+      }
+    }
+    function pausar() {
+      ytPendiente = false;
+      quiereSonar = false;
+      if (esYt()) { if (ytListo) yt.pauseVideo(); }
       else audio.pause();
-    };
-    $("#btn-play").addEventListener("click", toggle);
-    $("#fab-musica").addEventListener("click", toggle);
+      estado(false);
+    }
+    function alternar() { (sonando || ytPendiente) ? pausar() : reproducir(); }
+    function ir(i) {
+      const n = canciones.length;
+      if (!n) return;
+      const j = ((i % n) + n) % n;
+      if (listaId) {
+        if (!ytListo) return;
+        quiereSonar = true;
+        idx = j;
+        yt.playVideoAt(j);
+        mostrarInfo();
+        pintarProgreso(0, 0);
+        return;
+      }
+      pausar();
+      idx = j;
+      mostrarInfo();
+      pintarProgreso(0, 0);
+      reproducir();
+    }
+    function siguiente() {
+      if (listaId) { if (ytListo) { quiereSonar = true; yt.nextVideo(); } return; }
+      if (m.aleatorio && canciones.length > 2) {
+        let j = idx;
+        while (j === idx) j = Math.floor(Math.random() * canciones.length);
+        ir(j);
+      } else ir(idx + 1);
+    }
+    function anterior() {
+      if (listaId) { if (ytListo) { quiereSonar = true; yt.previousVideo(); } return; }
+      ir(idx - 1);
+    }
 
-    audio.addEventListener("play", () => document.body.classList.add("sonando"));
-    audio.addEventListener("pause", () => document.body.classList.remove("sonando"));
-    audio.addEventListener("ended", () => document.body.classList.remove("sonando"));
-
-    const fmt = (s) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00");
-    audio.addEventListener("loadedmetadata", () => { $("#tiempo-total").textContent = fmt(audio.duration); });
-    audio.addEventListener("timeupdate", () => {
-      $("#barra-progreso").style.width = ((audio.currentTime / audio.duration) * 100 || 0) + "%";
-      $("#tiempo-actual").textContent = fmt(audio.currentTime);
-    });
+    $("#btn-play").addEventListener("click", alternar);
+    $("#fab-musica").addEventListener("click", alternar);
+    $("#btn-prev").addEventListener("click", anterior);
+    $("#btn-next").addEventListener("click", siguiente);
     $("#barra").addEventListener("click", (e) => {
-      if (!audio.duration) return;
       const r = e.currentTarget.getBoundingClientRect();
-      audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
+      const f = (e.clientX - r.left) / r.width;
+      if (esYt()) { if (ytListo && yt.getDuration()) yt.seekTo(f * yt.getDuration(), true); }
+      else if (audio.duration) audio.currentTime = f * audio.duration;
     });
+
+    if (!listaId) pintarLista();
+    mostrarInfo();
+    cargarYoutube();
+    if (!listaId) completarTitulos();
 
     return {
-      alAbrir() {
-        if (disponible && m.reproducirAlAbrir !== false) audio.play().catch(() => {});
-      }
+      activa: true,
+      alAbrir() { if (m.reproducirAlAbrir !== false) reproducir(); }
     };
   }
 
@@ -623,12 +1188,12 @@
     const lista = C.videos || [];
     if (!lista.length) return;
     $("#videos").hidden = false;
-    $("#nav-videos").parentElement.hidden = false;
     const grid = $("#videos-grid");
     lista.forEach((v) => {
-      const media = v.youtube
+      const id = idYoutube(v.youtube);
+      const media = id
         ? el("iframe", {
-            src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.youtube)}`,
+            src: `https://www.youtube-nocookie.com/embed/${id}`,
             title: v.titulo || "Video",
             allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
             allowfullscreen: "",
@@ -641,10 +1206,11 @@
     });
   }
 
-  /* ---------- 9. Cierre ---------- */
+  /* ---------- Cierre ---------- */
   function iniciarFinal() {
     const f = C.final || {};
-    $("#final-foto").append(crearImg(f.foto, "Nuestra foto especial", 4));
+    const marco = $("#final-foto");
+    marco.append(crearImg(f.foto, "Nuestra foto especial", 4, "retrato", () => marco.remove()));
     $("#final-titulo").textContent = f.titulo || "";
     $("#final-fecha").textContent = f.fecha || "";
     $("#final-fecha-texto").textContent = f.fechaTexto || "";
@@ -880,7 +1446,7 @@
   function iniciarCorazonesAlTocar() {
     if (reduceMotion || !efectos.corazonesAlTocar) return;
     document.addEventListener("pointerdown", (e) => {
-      if (e.target.closest("button, a, .lightbox, .carrusel-stage, .barra, .intro, iframe, video")) return;
+      if (e.target.closest("button, a, .lightbox, .lector, .carrusel-stage, .barra, .intro, iframe, video")) return;
       for (let i = 0; i < 3; i++) {
         const h = el("span", { class: "corazon-click", "aria-hidden": "true" }, "❤");
         h.style.left = e.clientX + "px";
@@ -892,21 +1458,6 @@
         setTimeout(() => h.remove(), 1600);
       }
     });
-  }
-
-  /* ---------- Aparición al hacer scroll y barra de navegación ---------- */
-  function iniciarRevelado() {
-    const els = $$("[data-reveal]");
-    if (reduceMotion || !("IntersectionObserver" in window)) {
-      els.forEach((e) => e.classList.add("visible"));
-      return;
-    }
-    const io = new IntersectionObserver((entradas) => {
-      entradas.forEach((e) => {
-        if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); }
-      });
-    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
-    els.forEach((e) => io.observe(e));
   }
 
   function iniciarNav() {
@@ -922,7 +1473,7 @@
     const cfg = C.intro || {};
     const comenzar = () => {
       arrancarHero();
-      $("#fab-musica").classList.add("visible");
+      if (musica.activa) $("#fab-musica").classList.add("visible");
     };
     if (cfg.mostrar === false) { intro.remove(); comenzar(); return; }
 
@@ -955,15 +1506,15 @@
   prepararHero();
   iniciarContador();
   iniciarCarta();
-  iniciarCarruseles();
-  iniciarLineaTiempo();
-  iniciarGaleria();
+  iniciarAgenda();
   iniciarLightbox();
   iniciarRazones();
   const musica = iniciarMusica();
   iniciarVideos();
   iniciarFinal();
   iniciarRevelado();
+  sincronizarSecciones();
+  Promise.all([iniciarCarruseles(), iniciarGaleria()]).then(sincronizarSecciones);
   iniciarNav();
   iniciarEfectosFondo();
   iniciarCorazonesAlTocar();
