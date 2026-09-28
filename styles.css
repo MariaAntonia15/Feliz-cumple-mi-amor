@@ -995,6 +995,8 @@ body.sonando .fab-musica .mini-eq { display: flex; }
   box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
 }
 .final-foto img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: var(--rose-soft); }
+.final-foto.horizontal { width: min(660px, 92vw); }
+.final-foto.horizontal img { aspect-ratio: 3 / 2; }
 .final h2 {
   font-family: var(--font-script);
   font-weight: 400;

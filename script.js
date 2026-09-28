@@ -1329,8 +1329,9 @@
   function iniciarFinal() {
     const f = C.final || {};
     const marco = $("#final-foto");
-    // Sin foto propia: una foto vertical del álbum
-    marco.append(crearImg(f.foto, "Nuestra foto especial", 4, "retrato", (img) => {
+    // El marco se adapta a fotos horizontales para no recortarlas
+    const ajustarMarco = (img) => img.addEventListener("load", () => marco.classList.toggle("horizontal", img.naturalWidth > img.naturalHeight));
+    const propia = crearImg(f.foto, "Nuestra foto especial", 4, "retrato", (img) => {
       img.remove();
       marco.hidden = true;
       albumListo.then((album) => {
@@ -1338,9 +1339,12 @@
         const verticales = album.filter((x) => x.alto >= x.ancho);
         const alt = fotoAlbum(azar(verticales.length ? verticales : album), "Nuestra foto especial", "w800");
         alt.addEventListener("load", () => { marco.hidden = false; });
+        ajustarMarco(alt);
         marco.append(alt);
       });
-    }));
+    });
+    ajustarMarco(propia);
+    marco.append(propia);
     $("#final-titulo").textContent = f.titulo || "";
     $("#final-fecha").textContent = f.fecha || "";
     $("#final-fecha-texto").textContent = f.fechaTexto || "";
