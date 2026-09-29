@@ -449,7 +449,7 @@ Te amo ❤️😘
      no al abrir index.html directamente en tu computador.               */
   musica: {
     dedicatoria: "Estas canciones siempre me recuerdan a ti",
-    reproducirAlAbrir: true,     // suena apenas se abre la página (o con el primer toque, si el navegador lo exige)
+    reproducirAlAbrir: true,     // suena justo al hacer clic en el sobre
     volumen: 0.7,                // de 0 a 1
     aleatorio: false,            // true = orden al azar
     canciones: [

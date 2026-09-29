@@ -1187,22 +1187,16 @@
       ytListo = true;
       yt.setVolume(Math.round(vol * 100));
       if (ytPendiente) { ytPendiente = false; reproducir(false); return; }
-      if (autoplay) sonarAlEntrar();
+      if (autoplay) prepararEnSilencio();
     }
-    // Suena apenas se abre la página. Si el navegador no permite sonido antes
-    // de un toque, la canción arranca en silencio (ya cargada) y el volumen se
-    // enciende, desde el principio, con el primer toque en cualquier parte.
-    function sonarAlEntrar() {
+    // Mientras el sobre está cerrado, la canción se va cargando en silencio;
+    // al hacer clic en el sobre suena de inmediato y desde el principio.
+    function prepararEnSilencio() {
+      if (!esYt()) return;
       quiereSonar = true;
-      if (!esYt()) { reproducir(false); return; }
-      yt.unMute();
+      silenciado = true;
+      yt.mute();
       yt.playVideo();
-      setTimeout(() => {
-        if (!quiereSonar || silenciado || yt.getPlayerState() === 1) return;
-        silenciado = true;
-        yt.mute();
-        yt.playVideo();
-      }, 1500);
     }
     function activarSonido() {
       if (!silenciado || !ytListo) return false;
@@ -1214,8 +1208,9 @@
       yt.playVideo();
       estado(true);
       setTimeout(() => {
-        if (quiereSonar && (yt.isMuted() || yt.getPlayerState() !== 1)) toast("Toca el video para que empiece la música 🎵");
-      }, 3000);
+        const st = yt.getPlayerState();
+        if (quiereSonar && st !== 1 && st !== 3) toast("Toca el video para que empiece la música 🎵");
+      }, 3500);
       return true;
     }
     const eventosToque = ["pointerdown", "keydown", "touchend"];
@@ -1225,7 +1220,9 @@
       if (e.target && e.target.closest && e.target.closest("#btn-play, #fab-musica, #btn-prev, #btn-next, .pista, #barra")) return;
       if (!activarSonido() && autoplay && !sonando) reproducir();
     }
-    if (autoplay) eventosToque.forEach((t) => document.addEventListener(t, primerToque, true));
+    // Solo si la página no tiene sobre de bienvenida: suena con el primer toque
+    const sinSobre = C.intro && C.intro.mostrar === false;
+    if (autoplay && sinSobre) eventosToque.forEach((t) => document.addEventListener(t, primerToque, true));
 
     function onStateChange(e) {
       if (!esYt()) return;
@@ -1343,8 +1340,6 @@
     pintarLista();
     mostrarInfo();
     cargarYoutube();
-    // Canciones en archivo propio: intentar sonar al entrar (si el navegador no deja, suena al primer toque)
-    if (autoplay && !esYt() && actual().archivo) { audio.src = actual().archivo; audio.play().catch(() => {}); }
 
     return {
       // Al abrir el sobre: si todavía no suena (o suena en silencio), que suene ya
