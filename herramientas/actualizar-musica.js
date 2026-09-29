@@ -69,13 +69,31 @@ async function principal() {
   const html = await r.text();
   const avisos = [...html.matchAll(/"alertWithButtonRenderer":\{[^]*?"text":\{"(?:simpleText|runs)":(?:"([^"]+)"|\[\{"text":"([^"]+)")/g)].map((a) => a[1] || a[2]);
   if (avisos.length) console.log("Avisos de YouTube:", avisos.join(" | "));
-  const pista = html.match(/.{0,120}(?:no disponible|unavailable|ocult|hidden).{0,120}/i);
-  if (pista) console.log("Pista:", pista[0]);
   const canciones = extraerCanciones(html);
   if (!canciones.length) throw new Error("La lista no tiene canciones visibles (debe ser pública o no listada)");
 
-  const salida = JSON.stringify({ canciones }, null, 1) + "\n";
   const anterior = fs.existsSync("musica.json") ? fs.readFileSync("musica.json", "utf8") : "";
+
+  // GitHub lee la lista desde Estados Unidos: YouTube oculta allí las canciones
+  // bloqueadas en ese país ("Se ocultó 1 video no disponible"), aunque en
+  // Colombia sí suenan. Esas canciones se conservan de la lectura anterior.
+  const ocultos = avisos.reduce((n, a) => {
+    const m = String(a).match(/(\d+)\s+(?:videos?\s+no\s+disponibles?|unavailable\s+videos?)/i);
+    return n + (m ? Number(m[1]) : 0);
+  }, 0);
+  if (ocultos && anterior) {
+    try {
+      const previas = JSON.parse(anterior).canciones || [];
+      const actuales = new Set(canciones.map((c) => c.yt));
+      const perdidas = previas.filter((c) => !actuales.has(c.yt));
+      if (perdidas.length && perdidas.length <= ocultos) {
+        previas.forEach((c, i) => { if (!actuales.has(c.yt)) canciones.splice(Math.min(i, canciones.length), 0, c); });
+        console.log(`Conservadas ${perdidas.length} canciones ocultas en Estados Unidos: ${perdidas.map((c) => c.titulo).join(" | ")}`);
+      }
+    } catch (e) { /* musica.json dañado: se reemplaza */ }
+  }
+
+  const salida = JSON.stringify({ canciones }, null, 1) + "\n";
   if (anterior === salida) { console.log(`Sin cambios (${canciones.length} canciones).`); return; }
   fs.writeFileSync("musica.json", salida);
   console.log(`Guardadas ${canciones.length} canciones.`);
