@@ -66,7 +66,12 @@ async function principal() {
     }
   });
   if (!r.ok) throw new Error(`No pude abrir la lista (HTTP ${r.status})`);
-  const canciones = extraerCanciones(await r.text());
+  const html = await r.text();
+  const avisos = [...html.matchAll(/"alertWithButtonRenderer":\{[^]*?"text":\{"(?:simpleText|runs)":(?:"([^"]+)"|\[\{"text":"([^"]+)")/g)].map((a) => a[1] || a[2]);
+  if (avisos.length) console.log("Avisos de YouTube:", avisos.join(" | "));
+  const pista = html.match(/.{0,120}(?:no disponible|unavailable|ocult|hidden).{0,120}/i);
+  if (pista) console.log("Pista:", pista[0]);
+  const canciones = extraerCanciones(html);
   if (!canciones.length) throw new Error("La lista no tiene canciones visibles (debe ser pública o no listada)");
 
   const salida = JSON.stringify({ canciones }, null, 1) + "\n";
