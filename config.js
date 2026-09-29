@@ -30,14 +30,19 @@ window.CONFIG = {
   /* ---------- 🌙 MODO NOCTURNO ---------- */
   modoNocturnoPorDefecto: false,
 
-  /* ---------- 📷 ÁLBUM DE GOOGLE FOTOS ----------
-     Las fotos de este álbum compartido aparecen solas en la galería,
-     el carrusel, la portada, el cierre y en los días de la agenda que
-     tengan la misma fecha. GitHub revisa el álbum cada hora y guarda
-     la lista en fotos-album.json (ver .github/workflows/fotos.yml).    */
+  /* ---------- 🔒 ÁLBUM Y LISTA DE MÚSICA (PRIVADOS) ----------
+     Los enlaces del álbum de Google Fotos y de la lista de YouTube NO
+     están en la página: están guardados como secretos en GitHub
+     (Settings → Secrets and variables → Actions: ALBUM_URL y
+     LISTA_YOUTUBE), que solo ve la dueña del repositorio.
+     Cada hora GitHub los lee en privado y guarda solo las fotos
+     (fotos-album.json) y las canciones (musica.json) que usa la página. */
+  repositorio: "MariaAntonia15/Feliz-cumple-mi-amor",
+
+  /* ---------- 📷 FOTOS DEL ÁLBUM ----------
+     Aparecen solas en la galería, el carrusel, la portada, el cierre y
+     en los días de la agenda que tengan la misma fecha.                 */
   album: {
-    enlace: "https://photos.app.goo.gl/jULrGdE69VDEHWq18",
-    repositorio: "MariaAntonia15/Feliz-cumple-mi-amor",
     fotosPorPagina: 12,          // fotos visibles en la galería antes de "Ver más"
     fotosEnCarrusel: 12          // fotos al azar en el carrusel (si no hay recuerdo-N.jpg)
   },
@@ -436,14 +441,13 @@ Te amo ❤️😘
   ],
 
   /* ---------- 🎵 NUESTRAS CANCIONES ----------
-     listaYoutube: la lista de reproducción de YouTube. La página la lee
-     cada vez que se abre, así que las canciones que agregues a la lista
-     en YouTube aparecen solas (la lista debe ser pública o no listada).
-     Si prefieres canciones sueltas, borra listaYoutube y usa "canciones".
+     Vienen de la lista privada de YouTube (secreto LISTA_YOUTUBE). Las
+     canciones que agregues a esa lista aparecen solas en máximo una hora.
+     Cada visita empieza con una canción al azar, distinta de la anterior.
+     "canciones" es solo un respaldo por si algún día no hay lista.
      Nota: YouTube solo suena con la página publicada (GitHub Pages),
      no al abrir index.html directamente en tu computador.               */
   musica: {
-    listaYoutube: "https://www.youtube.com/playlist?list=PLd0o2W-1Fff0",
     dedicatoria: "Estas canciones siempre me recuerdan a ti",
     reproducirAlAbrir: true,     // empieza a sonar al abrir el sobre
     volumen: 0.7,                // de 0 a 1

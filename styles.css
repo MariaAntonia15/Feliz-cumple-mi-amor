@@ -279,16 +279,24 @@ section { padding: clamp(64px, 11vw, 136px) 0; position: relative; scroll-margin
     radial-gradient(ellipse at 80% 85%, #44141c, transparent 55%),
     #1a0a0c;
 }
-.hero-bg { position: absolute; inset: 0; }
-.hero-bg img {
-  width: 100%; height: 100%;
+/* Portada: la foto se ve completa (sin recortar) y los bordes libres se
+   rellenan con la misma foto desenfocada, en computador y en celular. */
+.hero-bg { position: absolute; inset: 0; overflow: hidden; opacity: 0; transition: opacity 1.6s ease; }
+.hero-bg.lista { opacity: 1; }
+.hero-bg img { position: absolute; display: block; }
+.hero-fondo {
+  inset: -60px;
+  width: calc(100% + 120px); height: calc(100% + 120px);
   object-fit: cover;
-  transform: scale(1.15);
-  animation: kenBurns 26s ease-in-out infinite alternate;
+  filter: blur(32px) brightness(.62) saturate(1.15);
 }
-@keyframes kenBurns { to { transform: scale(1.02) translate(-2%, -1%); } }
-.hero-bg img.desde-album { opacity: 0; transition: opacity 1.6s ease; }
-.hero-bg img.desde-album.lista { opacity: 1; }
+.hero-foto {
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  animation: respirar 22s ease-in-out infinite alternate;
+}
+@keyframes respirar { to { transform: scale(1.035); } }
 .hero-overlay {
   position: absolute; inset: 0;
   background:

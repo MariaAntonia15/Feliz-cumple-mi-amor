@@ -43,7 +43,7 @@ Nueva estrofa
 - Las cartas y poemas van entre comillas invertidas `` ` `` y pueden tener varias líneas.
 
 ### 📷 Fotos del álbum de Google Fotos (automáticas)
-Las fotos del álbum compartido **"Nosotros <3"** (`album.enlace` en `config.js`) aparecen solas en:
+Las fotos del álbum compartido **"Nosotros <3"** aparecen solas en:
 - la **galería** (con filtros por año y "Ver más fotos"),
 - el **carrusel** de polaroids (12 al azar, distintas cada vez),
 - la **portada** y el **cierre** (si no hay `portada.jpg` / `final.jpg`),
@@ -60,9 +60,9 @@ También puedes copiar fotos en **`fotos/`** con los nombres de `config.js`. Las
 Consejo: reduce las fotos a ~1600 px de ancho (por ejemplo con squoosh.app). Las mayúsculas importan: `Foto.JPG` no es lo mismo que `foto.jpg`.
 
 ### 🎵 Canciones
-La música viene de la lista de YouTube **"me recuerdan a ti"** (`musica.listaYoutube`). La página la lee cada vez que se abre: **para agregar una canción, solo agrégala a esa lista en YouTube**. La lista debe estar como pública o no listada.
+La música viene de la lista de YouTube **"me recuerdan a ti"**. **Para agregar una canción, solo agrégala a esa lista en YouTube**: aparece en la página en máximo una hora. Cada visita empieza con una canción al azar. La lista debe estar como **no listada** (así no aparece en tu canal, pero GitHub la puede leer).
 
-Si algún día prefieres canciones sueltas, borra `listaYoutube` y usa:
+Si algún día no hay lista, se usan las canciones escritas a mano en `config.js`:
 ```js
 canciones: [
   { youtube: "https://www.youtube.com/watch?v=…", titulo: "…", artista: "…", dedicatoria: "…" },
@@ -75,3 +75,15 @@ Algunas canciones oficiales no permiten reproducirse fuera de YouTube; para esas
 
 ## 🌐 Subir cambios a GitHub
 En el repositorio: **Add file → Upload files**, arrastra los archivos que cambiaste y toca **Commit changes**. GitHub Pages se actualiza en 1–2 minutos.
+
+---
+
+## 🔒 Enlaces privados (solo para la administradora)
+Los enlaces del **álbum de Google Fotos** y de la **lista de YouTube** no aparecen en la página ni en el código público. Están guardados como **secretos** del repositorio, que solo ve su dueña:
+
+**Settings → Secrets and variables → Actions**
+- `ALBUM_URL`: enlace para compartir el álbum de Google Fotos.
+- `LISTA_YOUTUBE`: enlace de la lista de YouTube.
+
+Cada hora, GitHub (`.github/workflows/fotos.yml`) los usa en privado y guarda solo lo que la página necesita: las fotos en `fotos-album.json` y los nombres de las canciones en `musica.json`.
+Para cambiar el álbum o la lista, edita el secreto (botón **Update**) y luego ve a **Actions → Actualizar fotos y canciones → Run workflow**.

@@ -1,4 +1,4 @@
-name: Actualizar fotos del álbum
+name: Actualizar fotos y canciones
 
 on:
   schedule:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  fotos:
+  actualizar:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,17 +18,27 @@ jobs:
         with:
           node-version: 20
 
+      # Los enlaces del álbum y de la lista son secretos: solo los ve la dueña del repositorio
       - name: Leer el álbum de Google Fotos
         run: node herramientas/actualizar-fotos.js
+        continue-on-error: true
+        env:
+          ALBUM_URL: ${{ secrets.ALBUM_URL }}
 
-      - name: Guardar fotos nuevas
+      - name: Leer la lista de canciones
+        run: node herramientas/actualizar-musica.js
+        continue-on-error: true
+        env:
+          LISTA_YOUTUBE: ${{ secrets.LISTA_YOUTUBE }}
+
+      - name: Guardar cambios
         run: |
-          if [ -z "$(git status --porcelain -- fotos-album.json)" ]; then
-            echo "No hay fotos nuevas."
+          if [ -z "$(git status --porcelain -- fotos-album.json musica.json)" ]; then
+            echo "No hay fotos ni canciones nuevas."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add fotos-album.json
-          git commit -m "Fotos del álbum actualizadas"
+          git add fotos-album.json musica.json
+          git commit -m "Fotos y canciones actualizadas"
           git push

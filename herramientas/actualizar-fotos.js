@@ -1,6 +1,7 @@
 /* ==========================================================================
-   Lee el álbum compartido de Google Fotos (config.js → album.enlace) y
-   guarda la lista de fotos en fotos-album.json.
+   Lee el álbum compartido de Google Fotos y guarda la lista de fotos en
+   fotos-album.json. El enlace del álbum es privado: viene del secreto
+   ALBUM_URL de GitHub (Settings → Secrets and variables → Actions).
    Lo ejecuta GitHub Actions cada hora (.github/workflows/fotos.yml);
    no hace falta correrlo a mano.
    ========================================================================== */
@@ -43,8 +44,8 @@ function extraerFotos(html) {
 }
 
 async function principal() {
-  const enlace = (leerConfig().album || {}).enlace;
-  if (!enlace) { console.log("config.js no tiene album.enlace; nada que hacer."); return; }
+  const enlace = process.env.ALBUM_URL || (leerConfig().album || {}).enlace;
+  if (!enlace) { console.log("Falta el secreto ALBUM_URL; nada que hacer."); return; }
 
   const r = await fetch(enlace, {
     redirect: "follow",

@@ -165,11 +165,10 @@
   let albumTitulo = "";
   let albumListo = Promise.resolve([]);
   function cargarAlbum() {
-    const a = C.album || {};
-    if (!a.enlace) return Promise.resolve([]);
+    const repo = C.repositorio || (C.album && C.album.repositorio);
     // Primero la copia más reciente del repositorio; si no, la de esta carpeta
     const fuentes = [];
-    if (a.repositorio) fuentes.push(`https://raw.githubusercontent.com/${a.repositorio}/main/fotos-album.json`);
+    if (repo) fuentes.push(`https://raw.githubusercontent.com/${repo}/main/fotos-album.json`);
     fuentes.push("fotos-album.json");
     return (async () => {
       for (const u of fuentes) {
@@ -292,21 +291,37 @@
   /* ---------- Portada ---------- */
   function prepararHero() {
     const h = C.hero || {};
-    // Sin foto de portada propia: una foto horizontal del álbum, distinta cada vez
-    const desdeAlbum = (img) => {
-      img.remove();
-      albumListo.then((album) => {
-        if (!album.length) return;
-        const horizontales = album.filter((f) => f.ancho > f.alto);
-        const alt = fotoAlbum(azar(horizontales.length ? horizontales : album), "Nosotros", "w1920");
-        alt.classList.add("desde-album");
-        alt.addEventListener("load", () => alt.classList.add("lista"));
-        $("#hero-bg").append(alt);
-      });
+    const bg = $("#hero-bg");
+    // La foto se muestra completa, respetando sus proporciones; la misma foto
+    // desenfocada rellena los bordes para que encaje en cualquier pantalla.
+    const ponerPortada = (src, alt) => {
+      bg.classList.remove("lista");
+      bg.textContent = "";
+      const fondo = el("img", { class: "hero-fondo", src, alt: "", "aria-hidden": "true", decoding: "async", referrerpolicy: "no-referrer" });
+      const foto = el("img", { class: "hero-foto", src, alt: alt || "Nosotros", decoding: "async", referrerpolicy: "no-referrer" });
+      foto.addEventListener("load", () => bg.classList.add("lista"));
+      bg.append(fondo, foto);
     };
-    const img = crearImg(h.foto, "Nuestra foto", 1, "paisaje", pendientes ? undefined : desdeAlbum);
-    img.loading = "eager";
-    $("#hero-bg").append(img);
+    // Sin foto propia: una del álbum, vertical en celular y horizontal en computador
+    const pantallaVertical = () => window.innerHeight > window.innerWidth;
+    const portadaDelAlbum = () => albumListo.then((album) => {
+      if (!album.length) return;
+      const vertical = pantallaVertical();
+      const opciones = album.filter((f) => (f.alto > f.ancho) === vertical);
+      const f = azar(opciones.length ? opciones : album);
+      ponerPortada(`${f.url}=w2000-h2000`, "Nosotros");
+    });
+    const usarAlbum = () => {
+      portadaDelAlbum();
+      const mq = window.matchMedia && window.matchMedia("(orientation: portrait)");
+      if (mq && mq.addEventListener) mq.addEventListener("change", portadaDelAlbum); // si giran el celular
+    };
+    if (!h.foto) usarAlbum();
+    else existeImagen(h.foto).then((ok) => {
+      if (ok) ponerPortada(h.foto, "Nuestra foto");
+      else if (pendientes) ponerPortada(placeholder(h.foto, 1600, 1000, 1), "");
+      else usarAlbum();
+    });
 
     const titulo = $("#hero-titulo");
     const palabras = (h.titulo || "").split(" ");
@@ -767,9 +782,6 @@
     sec.hidden = false;
     if (album.length) {
       $("#galeria-sub").textContent = `${album.length} fotos de nuestro álbum${albumTitulo ? " “" + albumTitulo + "”" : ""} · toca cualquiera para verla en grande`;
-      const enlace = $("#galeria-album");
-      enlace.href = C.album.enlace;
-      enlace.hidden = false;
     }
 
     const filtros = $("#filtros");
@@ -1001,20 +1013,13 @@
     actualizar();
   }
 
-  /* ---------- Música: lista de YouTube o canciones sueltas ---------- */
+  /* ---------- Música: canciones de nuestra lista privada ---------- */
   function idYoutube(v) {
     if (!v) return null;
     const s = String(v).trim();
     if (/^[\w-]{11}$/.test(s)) return s;
     const m = s.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/);
     return m ? m[1] : null;
-  }
-  function idLista(v) {
-    if (!v) return null;
-    const s = String(v).trim();
-    const m = s.match(/[?&]list=([\w-]+)/);
-    if (m) return m[1];
-    return /^(PL|OL|UU|FL|RD)[\w-]+$/.test(s) ? s : null;
   }
   // Quita "(Video Oficial)", "[Letra]", "| Lyrics"… de los títulos de YouTube
   const RUIDO = /official|oficial|video|vídeo|videoclip|audio|lyric|letra|\bsub\b|subtitulad|visualizer|remaster|\bhd\b|4k/i;
@@ -1026,25 +1031,74 @@
       .replace(/\s+[-–—]\s*$/, "");
     return s.trim();
   }
-  const esCanalArtista = (a) => /\s-\sTopic$|VEVO$/i.test(a || "");
   const limpiarAutor = (a) => String(a || "").replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim();
+
+  // El enlace de la lista de YouTube no está en la página: GitHub la lee en
+  // privado y guarda aquí solo las canciones (herramientas/actualizar-musica.js).
+  async function cargarCanciones() {
+    const m = C.musica || {};
+    const repo = C.repositorio || (C.album && C.album.repositorio);
+    const fuentes = [];
+    if (repo) fuentes.push(`https://raw.githubusercontent.com/${repo}/main/musica.json`);
+    fuentes.push("musica.json");
+    for (const u of fuentes) {
+      try {
+        const r = await fetch(u, { cache: "no-cache" });
+        if (!r.ok) continue;
+        const j = await r.json();
+        const lista = (j.canciones || [])
+          .map((c) => {
+            const titulo = limpiarTitulo(c.titulo);
+            // Si el título ya trae "Artista - Canción" no se repite el canal
+            const artista = /\s[-–—]\s/.test(titulo) ? "" : limpiarAutor(c.canal);
+            return { yt: idYoutube(c.yt), titulo, artista };
+          })
+          .filter((c) => c.yt);
+        if (lista.length) return lista;
+      } catch (e) { /* sin conexión o sin archivo: se prueba la siguiente fuente */ }
+    }
+    // Respaldo: canciones escritas a mano en config.js
+    return (m.canciones || []).map((c) => ({ ...c, yt: idYoutube(c.youtube) })).filter((c) => c.yt || c.archivo);
+  }
+
+  // Cada visita empieza con una canción al azar, distinta de la de la vez anterior
+  function cancionInicial(canciones) {
+    if (canciones.length < 2) return 0;
+    const clave = (c) => c.yt || c.archivo;
+    let anterior = null;
+    try { anterior = localStorage.getItem("cancion-inicial"); } catch (e) { /* sin almacenamiento */ }
+    const opciones = canciones.map((c, i) => i).filter((i) => clave(canciones[i]) !== anterior);
+    const i = azar(opciones.length ? opciones : canciones.map((c, j) => j));
+    try { localStorage.setItem("cancion-inicial", clave(canciones[i])); } catch (e) { /* sin almacenamiento */ }
+    return i;
+  }
 
   function iniciarMusica() {
     const m = C.musica || {};
-    const listaId = idLista(m.listaYoutube);
-    let canciones = listaId ? [] : (m.canciones || [])
-      .map((c) => ({ ...c, yt: idYoutube(c.youtube) }))
-      .filter((c) => c.yt || c.archivo);
     const sec = $("#musica");
-    if (!listaId && !canciones.length) {
-      sec.hidden = true;
-      return { activa: false, alAbrir() {} };
-    }
+    sec.hidden = true;
+    let control = null;
+    let abrirPendiente = false;
+    const listo = cargarCanciones().then((canciones) => {
+      if (!canciones.length) return false;
+      sec.hidden = false;
+      control = crearReproductor(canciones, m);
+      observarRevelado(sec);
+      sincronizarSecciones();
+      if (abrirPendiente) control.alAbrir();
+      return true;
+    });
+    return {
+      listo,
+      alAbrir() { if (control) control.alAbrir(); else abrirPendiente = true; }
+    };
+  }
 
+  function crearReproductor(canciones, m) {
     const audio = $("#audio");
     const vol = typeof m.volumen === "number" ? Math.min(1, Math.max(0, m.volumen)) : 0.7;
     audio.volume = vol;
-    let idx = 0;
+    let idx = cancionInicial(canciones);
     let yt = null;
     let ytListo = false;
     let ytPendiente = false;
@@ -1058,26 +1112,14 @@
     const btnMas = $("#playlist-mas");
     let pistas = [];
     const actual = () => canciones[idx] || {};
-    const esYt = () => Boolean(listaId || actual().yt);
+    const esYt = () => Boolean(actual().yt);
 
     $("#musica-dedicatoria").textContent = m.dedicatoria || "";
-    if (listaId) {
-      const enlace = $("#playlist-enlace");
-      enlace.href = `https://www.youtube.com/playlist?list=${listaId}`;
-      enlace.hidden = false;
-    }
 
     const estado = (on) => {
       sonando = on;
       document.body.classList.toggle("sonando", on);
     };
-
-    function avisoLista(texto) {
-      lista.hidden = false;
-      lista.textContent = "";
-      lista.append(el("li", { class: "playlist-aviso" }, texto));
-      btnMas.hidden = true;
-    }
 
     function pintarLista() {
       lista.textContent = "";
@@ -1087,16 +1129,13 @@
           el("span", { class: "pista-info" }, el("strong", {}, c.titulo || `Canción ${i + 1}`), c.artista ? el("small", {}, c.artista) : null),
           el("span", { class: "pista-eq", "aria-hidden": "true" }, el("i"), el("i"), el("i")));
         b.addEventListener("click", () => (i === idx ? alternar() : ir(i)));
-        const href = c.yt ? `https://www.youtube.com/watch?v=${c.yt}${listaId ? "&list=" + listaId : ""}` : null;
-        lista.append(el("li", {}, b, href
-          ? el("a", { class: "pista-yt", href, target: "_blank", rel: "noopener", "aria-label": "Abrir en YouTube", title: "Abrir en YouTube" }, "↗")
-          : null));
+        lista.append(el("li", {}, b));
         return b;
       });
       const pocas = canciones.length < 2;
       lista.hidden = pocas;
-      $("#btn-prev").hidden = pocas && !listaId;
-      $("#btn-next").hidden = pocas && !listaId;
+      $("#btn-prev").hidden = pocas;
+      $("#btn-next").hidden = pocas;
       marcar();
     }
 
@@ -1105,8 +1144,7 @@
         p.classList.toggle("activa", i === idx);
         p.parentElement.hidden = !expandida && i >= MAX_VISIBLES && i !== idx;
       });
-      const sobran = canciones.length > MAX_VISIBLES;
-      btnMas.hidden = !sobran;
+      btnMas.hidden = canciones.length <= MAX_VISIBLES;
       btnMas.textContent = expandida ? "Ver menos" : `Ver las ${canciones.length} canciones`;
     }
     btnMas.addEventListener("click", () => { expandida = !expandida; marcar(); });
@@ -1114,7 +1152,7 @@
     function mostrarInfo() {
       const c = actual();
       $("#rep-dedicatoria").textContent = c.dedicatoria || "";
-      $("#rep-titulo").textContent = c.titulo || (listaId ? (canciones.length ? `Canción ${idx + 1}` : "Nuestra lista") : `Canción ${idx + 1}`);
+      $("#rep-titulo").textContent = c.titulo || `Canción ${idx + 1}`;
       $("#rep-artista").textContent = c.artista || "";
       $("#yt-marco").hidden = !esYt();
       $("#vinilo").hidden = esYt();
@@ -1131,92 +1169,48 @@
       $("#tiempo-total").textContent = fmt(d);
     }
 
-    // Nombres de las canciones (se consultan a YouTube)
-    async function completarTitulos() {
-      await Promise.all(canciones.map(async (c) => {
-        if (!c.yt || c.titulo) return;
-        try {
-          const r = await fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + c.yt));
-          if (!r.ok) return;
-          const j = await r.json();
-          c.titulo = limpiarTitulo(j.title) || c.titulo;
-          c.artista = esCanalArtista(j.author_name) ? limpiarAutor(j.author_name) : "";
-        } catch (e) { /* sin conexión: queda "Canción N" */ }
-      }));
-      pintarLista();
-      mostrarInfo();
-    }
     function tituloDesdePlayer() {
       const c = actual();
       if (!c.yt || c.titulo || !yt.getVideoData) return;
       const d = yt.getVideoData();
       if (d && d.title) {
         c.titulo = limpiarTitulo(d.title);
-        c.artista = esCanalArtista(d.author) ? limpiarAutor(d.author) : "";
         pintarLista();
         mostrarInfo();
       }
     }
 
-    // La lista se lee de YouTube cada vez que se abre la página:
-    // las canciones nuevas que agregues allá aparecen solas.
-    function leerLista(intento = 0) {
-      const ids = yt.getPlaylist && yt.getPlaylist();
-      if (ids && ids.length) {
-        canciones = ids.map((id) => ({ yt: id }));
-        const i = yt.getPlaylistIndex ? yt.getPlaylistIndex() : 0;
-        idx = i >= 0 ? i : 0;
-        pintarLista();
-        mostrarInfo();
-        completarTitulos();
-        return;
-      }
-      if (intento < 30) setTimeout(() => leerLista(intento + 1), 500);
-      else avisoLista("No pude cargar la lista. Revisa en YouTube que esté como pública o no listada.");
-    }
-
-    // --- Reproductor de YouTube ---
+    // --- Reproductor de YouTube (canción por canción, sin mostrar la lista) ---
     function onReady() {
       ytListo = true;
       yt.setVolume(Math.round(vol * 100));
-      if (listaId) {
-        yt.setLoop(true);
-        if (m.aleatorio) yt.setShuffle(true);
-        leerLista();
-      }
       if (ytPendiente) { ytPendiente = false; reproducir(false); }
     }
     function onStateChange(e) {
       if (!esYt()) return;
-      if (listaId && canciones.length) {
-        const i = yt.getPlaylistIndex();
-        if (i >= 0 && i !== idx) { idx = i; mostrarInfo(); pintarProgreso(0, 0); }
-      }
       if (e.data === 1) { errores = 0; estado(true); tituloDesdePlayer(); }
       else if (e.data === 2) estado(false);
-      else if (e.data === 0) { estado(false); if (!listaId) siguiente(); }
+      else if (e.data === 0) { estado(false); siguiente(); }
     }
     function onError() {
       estado(false);
       if (!quiereSonar) return;
       errores++;
       ultimoError = Date.now();
-      toast(`“${actual().titulo || "Esta canción"}” no se puede reproducir aquí. Ábrela en YouTube con ↗`, 5000);
-      if (errores < Math.max(canciones.length, 1)) setTimeout(siguiente, 2500);
+      toast(`“${actual().titulo || "Esta canción"}” no se puede reproducir aquí; pasamos a la siguiente 🎵`, 4000);
+      if (errores < canciones.length) setTimeout(siguiente, 2500);
     }
     function cargarYoutube() {
-      if (!listaId && !canciones.some((c) => c.yt)) return;
-      if (listaId) avisoLista("Cargando nuestras canciones…");
+      const primera = actual().yt ? actual() : canciones.find((c) => c.yt);
+      if (!primera) return;
       const crear = () => {
-        const opciones = {
+        yt = new window.YT.Player("yt-player", {
+          videoId: primera.yt,
           width: "100%",
           height: "100%",
           playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
           events: { onReady, onStateChange, onError }
-        };
-        if (listaId) Object.assign(opciones.playerVars, { listType: "playlist", list: listaId });
-        else opciones.videoId = (actual().yt ? actual() : canciones.find((c) => c.yt)).yt;
-        yt = new window.YT.Player("yt-player", opciones);
+        });
       };
       if (window.YT && window.YT.Player) { crear(); return; }
       const previo = window.onYouTubeIframeAPIReady;
@@ -1245,11 +1239,8 @@
       if (esYt()) {
         audio.pause();
         if (!ytListo) { ytPendiente = true; return; }
-        if (listaId) yt.playVideo();
-        else {
-          const v = yt.getVideoData && yt.getVideoData().video_id;
-          if (v !== c.yt) yt.loadVideoById(c.yt); else yt.playVideo();
-        }
+        const v = yt.getVideoData && yt.getVideoData().video_id;
+        if (v !== c.yt) yt.loadVideoById(c.yt); else yt.playVideo();
         // En algunos celulares YouTube exige tocar el video la primera vez
         if (avisar) setTimeout(() => {
           const st = yt.getPlayerState();
@@ -1272,34 +1263,20 @@
     function ir(i) {
       const n = canciones.length;
       if (!n) return;
-      const j = ((i % n) + n) % n;
-      if (listaId) {
-        if (!ytListo) return;
-        quiereSonar = true;
-        idx = j;
-        yt.playVideoAt(j);
-        mostrarInfo();
-        pintarProgreso(0, 0);
-        return;
-      }
       pausar();
-      idx = j;
+      idx = ((i % n) + n) % n;
       mostrarInfo();
       pintarProgreso(0, 0);
       reproducir();
     }
     function siguiente() {
-      if (listaId) { if (ytListo) { quiereSonar = true; yt.nextVideo(); } return; }
       if (m.aleatorio && canciones.length > 2) {
         let j = idx;
         while (j === idx) j = Math.floor(Math.random() * canciones.length);
         ir(j);
       } else ir(idx + 1);
     }
-    function anterior() {
-      if (listaId) { if (ytListo) { quiereSonar = true; yt.previousVideo(); } return; }
-      ir(idx - 1);
-    }
+    const anterior = () => ir(idx - 1);
 
     $("#btn-play").addEventListener("click", alternar);
     $("#fab-musica").addEventListener("click", alternar);
@@ -1312,13 +1289,11 @@
       else if (audio.duration) audio.currentTime = f * audio.duration;
     });
 
-    if (!listaId) pintarLista();
+    pintarLista();
     mostrarInfo();
     cargarYoutube();
-    if (!listaId) completarTitulos();
 
     return {
-      activa: true,
       alAbrir() { if (m.reproducirAlAbrir !== false) reproducir(); }
     };
   }
@@ -1628,7 +1603,7 @@
     const cfg = C.intro || {};
     const comenzar = () => {
       arrancarHero();
-      if (musica.activa) $("#fab-musica").classList.add("visible");
+      musica.listo.then((hay) => { if (hay) $("#fab-musica").classList.add("visible"); });
     };
     if (cfg.mostrar === false) { intro.remove(); comenzar(); return; }
 
