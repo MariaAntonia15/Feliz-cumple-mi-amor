@@ -298,7 +298,7 @@ Te amo ❤️😘
     { nombre: "Jose David", fecha: "10-09", anioNacimiento: 2005,
       titulo: "Cumpleaños de Jose David",
       texto: "El día en que llegó al mundo la persona que más amo." },
-    { nombre: "María Antonia", fecha: "12-15",
+    { nombre: "María Antonia", fecha: "12-15", anioNacimiento: 2003,
       titulo: "Cumpleaños de María Antonia",
       texto: "Mi día favorito para celebrarlo a tu lado." }
   ],
