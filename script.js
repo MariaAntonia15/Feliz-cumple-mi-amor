@@ -1106,6 +1106,8 @@
     let ultimoError = 0;
     let sonando = false;
     let quiereSonar = false; // solo se salta de canción por error si alguien le dio play
+    let silenciado = false;  // sonando sin volumen hasta que el navegador permita sonido
+    const autoplay = m.reproducirAlAbrir !== false;
     let expandida = false;
     const MAX_VISIBLES = 8;
     const lista = $("#playlist");
@@ -1184,21 +1186,66 @@
     function onReady() {
       ytListo = true;
       yt.setVolume(Math.round(vol * 100));
-      if (ytPendiente) { ytPendiente = false; reproducir(false); }
+      if (ytPendiente) { ytPendiente = false; reproducir(false); return; }
+      if (autoplay) sonarAlEntrar();
     }
+    // Suena apenas se abre la página. Si el navegador no permite sonido antes
+    // de un toque, la canción arranca en silencio (ya cargada) y el volumen se
+    // enciende, desde el principio, con el primer toque en cualquier parte.
+    function sonarAlEntrar() {
+      quiereSonar = true;
+      if (!esYt()) { reproducir(false); return; }
+      yt.unMute();
+      yt.playVideo();
+      setTimeout(() => {
+        if (!quiereSonar || silenciado || yt.getPlayerState() === 1) return;
+        silenciado = true;
+        yt.mute();
+        yt.playVideo();
+      }, 1500);
+    }
+    function activarSonido() {
+      if (!silenciado || !ytListo) return false;
+      silenciado = false;
+      quiereSonar = true;
+      yt.unMute();
+      yt.setVolume(Math.round(vol * 100));
+      yt.seekTo(0, true);
+      yt.playVideo();
+      estado(true);
+      setTimeout(() => {
+        if (quiereSonar && (yt.isMuted() || yt.getPlayerState() !== 1)) toast("Toca el video para que empiece la música 🎵");
+      }, 3000);
+      return true;
+    }
+    const eventosToque = ["pointerdown", "keydown", "touchend"];
+    function primerToque(e) {
+      eventosToque.forEach((t) => document.removeEventListener(t, primerToque, true));
+      // Los botones de música ya se encargan solos
+      if (e.target && e.target.closest && e.target.closest("#btn-play, #fab-musica, #btn-prev, #btn-next, .pista, #barra")) return;
+      if (!activarSonido() && autoplay && !sonando) reproducir();
+    }
+    if (autoplay) eventosToque.forEach((t) => document.addEventListener(t, primerToque, true));
+
     function onStateChange(e) {
       if (!esYt()) return;
-      if (e.data === 1) { errores = 0; estado(true); tituloDesdePlayer(); }
+      if (e.data === 1) { errores = 0; if (!silenciado) estado(true); tituloDesdePlayer(); }
       else if (e.data === 2) estado(false);
-      else if (e.data === 0) { estado(false); siguiente(); }
+      else if (e.data === 0) { estado(false); silenciado ? avanzarEnSilencio() : siguiente(); }
+    }
+    // Mientras nadie ha tocado la página, la siguiente canción también va en silencio
+    function avanzarEnSilencio() {
+      idx = (idx + 1) % canciones.length;
+      mostrarInfo();
+      if (actual().yt) yt.loadVideoById(actual().yt);
     }
     function onError() {
       estado(false);
       if (!quiereSonar) return;
       errores++;
       ultimoError = Date.now();
-      toast(`“${actual().titulo || "Esta canción"}” no se puede reproducir aquí; pasamos a la siguiente 🎵`, 4000);
-      if (errores < canciones.length) setTimeout(siguiente, 2500);
+      if (!silenciado) toast(`“${actual().titulo || "Esta canción"}” no se puede reproducir aquí; pasamos a la siguiente 🎵`, 4000);
+      if (errores < canciones.length) setTimeout(() => (silenciado ? avanzarEnSilencio() : siguiente()), 2500);
     }
     function cargarYoutube() {
       const primera = actual().yt ? actual() : canciones.find((c) => c.yt);
@@ -1239,6 +1286,7 @@
       if (esYt()) {
         audio.pause();
         if (!ytListo) { ytPendiente = true; return; }
+        if (silenciado) { silenciado = false; yt.unMute(); yt.setVolume(Math.round(vol * 100)); }
         const v = yt.getVideoData && yt.getVideoData().video_id;
         if (v !== c.yt) yt.loadVideoById(c.yt); else yt.playVideo();
         // En algunos celulares YouTube exige tocar el video la primera vez
@@ -1259,7 +1307,10 @@
       else audio.pause();
       estado(false);
     }
-    function alternar() { (sonando || ytPendiente) ? pausar() : reproducir(); }
+    function alternar() {
+      if (silenciado) { activarSonido(); return; }
+      (sonando || ytPendiente) ? pausar() : reproducir();
+    }
     function ir(i) {
       const n = canciones.length;
       if (!n) return;
@@ -1292,9 +1343,15 @@
     pintarLista();
     mostrarInfo();
     cargarYoutube();
+    // Canciones en archivo propio: intentar sonar al entrar (si el navegador no deja, suena al primer toque)
+    if (autoplay && !esYt() && actual().archivo) { audio.src = actual().archivo; audio.play().catch(() => {}); }
 
     return {
-      alAbrir() { if (m.reproducirAlAbrir !== false) reproducir(); }
+      // Al abrir el sobre: si todavía no suena (o suena en silencio), que suene ya
+      alAbrir() {
+        if (!autoplay) return;
+        if (!activarSonido() && !sonando) reproducir();
+      }
     };
   }
 

@@ -60,7 +60,7 @@ También puedes copiar fotos en **`fotos/`** con los nombres de `config.js`. Las
 Consejo: reduce las fotos a ~1600 px de ancho (por ejemplo con squoosh.app). Las mayúsculas importan: `Foto.JPG` no es lo mismo que `foto.jpg`.
 
 ### 🎵 Canciones
-La música viene de la lista de YouTube **"me recuerdan a ti"**. **Para agregar una canción, solo agrégala a esa lista en YouTube**: aparece en la página en máximo una hora. Cada visita empieza con una canción al azar. La lista debe estar como **no listada** (así no aparece en tu canal, pero GitHub la puede leer).
+La música viene de la lista de YouTube **"me recuerdan a ti"**. **Para agregar una canción, solo agrégala a esa lista en YouTube**: aparece en la página en máximo una hora. Cada visita empieza con una canción al azar y suena apenas se abre la página (si el navegador exige un toque primero, empieza con el primer toque). La lista debe estar como **no listada** (así no aparece en tu canal, pero GitHub la puede leer).
 
 Si algún día no hay lista, se usan las canciones escritas a mano en `config.js`:
 ```js
