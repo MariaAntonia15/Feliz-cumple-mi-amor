@@ -618,6 +618,104 @@ section { padding: clamp(64px, 11vw, 136px) 0; position: relative; scroll-margin
   transition: background .3s, color .3s;
 }
 .entrada-leer:hover { background: var(--red); color: #fff; }
+/* ---------- 🎂 Cumpleaños: tarjeta de fiesta ---------- */
+.agenda-especiales { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+.especiales-titulo { width: 100%; font-size: .72rem; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); font-weight: 500; }
+.especial {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 10px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--gold);
+  background:
+    radial-gradient(circle, rgba(227, 194, 126, .35) 0 1.4px, transparent 1.9px) 0 0 / 16px 16px,
+    linear-gradient(135deg, rgba(227, 194, 126, .22), rgba(217, 48, 63, .12)),
+    var(--surface);
+  box-shadow: 0 10px 24px -14px var(--red-glow);
+  line-height: 1.3;
+  transition: transform .3s, box-shadow .3s;
+}
+.especial:hover { transform: translateY(-3px); box-shadow: 0 14px 30px -12px var(--red-glow); }
+.especial strong { font-family: var(--font-serif); font-weight: 500; font-size: 1rem; color: var(--red); }
+.especial span { font-size: .82rem; color: var(--text); }
+.especial small { font-size: .72rem; color: var(--gold); font-weight: 500; }
+
+.entrada.tipo-cumple {
+  position: relative;
+  margin: 14px -10px;
+  padding: 46px 14px 24px;
+  border: 1px solid var(--gold);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, rgba(227, 194, 126, .45) 0 1.6px, transparent 2.1px) 0 0 / 24px 24px,
+    radial-gradient(circle, rgba(217, 48, 63, .28) 0 1.4px, transparent 1.9px) 12px 12px / 24px 24px,
+    radial-gradient(ellipse at 85% 20%, rgba(227, 194, 126, .28), transparent 55%),
+    linear-gradient(160deg, rgba(255, 244, 230, .55), rgba(217, 48, 63, .07)),
+    var(--surface);
+  box-shadow: 0 0 0 4px rgba(227, 194, 126, .14), 0 22px 44px -24px var(--red-glow);
+}
+.agenda-anio-titulo + .entrada.tipo-cumple, .entrada + .entrada.tipo-cumple, .entrada.tipo-cumple + .entrada { border-top: 1px solid var(--gold); }
+.entrada.tipo-cumple + .entrada:not(.tipo-cumple) { border-top: 0; }
+.tipo-cumple .entrada-fecha { position: relative; overflow: visible; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(227, 194, 126, .25), 0 0 26px rgba(227, 194, 126, .45); }
+.tipo-cumple .ef-mes { background: linear-gradient(135deg, var(--gold), #f4dca0); color: #5a3d12; border-radius: 11px 11px 0 0; }
+.tipo-cumple .entrada-fecha::before {   /* pastelito sobre la fecha */
+  content: "🎂"; position: absolute; left: 50%; top: -24px; z-index: 2;
+  transform: translateX(-50%);
+  font-size: 1.35rem;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .25));
+  animation: saltito 2.4s ease-in-out infinite;
+}
+.tipo-cumple .chip-tipo { background: linear-gradient(135deg, var(--gold), #f4dca0); color: #5a3d12; }
+.tipo-cumple h4 {
+  font-family: var(--font-script); font-weight: 400;
+  font-size: clamp(1.9rem, 4.4vw, 2.5rem); line-height: 1.1;
+  color: var(--red);
+  padding-right: 58px;   /* espacio para los globos */
+}
+.cumple-edad { margin: 0 0 .4em; font-family: var(--font-serif); font-style: italic; font-size: 1.05rem; color: var(--gold); }
+.cumple-cuenta {
+  display: inline-flex; align-items: center;
+  margin-top: 14px; padding: 7px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--red), var(--red-2));
+  color: #fff; font-size: .85rem; font-weight: 500;
+  box-shadow: 0 8px 20px -8px var(--red-glow);
+}
+.cumple-cuenta.hoy { animation: latido 1.4s ease-in-out infinite; }
+.banderines { position: absolute; left: 0; right: 0; top: 0; height: 40px; pointer-events: none; }
+.banderines svg { position: absolute; left: 0; top: 0; width: 100%; height: 20px; overflow: visible; }
+.banderines path { fill: none; stroke: var(--gold); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.banderines span {
+  position: absolute;
+  width: 14px; height: 18px; margin-left: -7px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: 50% 0;
+  animation: bandera 2.6s ease-in-out infinite alternate;
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, .12);
+}
+@keyframes bandera { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+.cumple-globos { position: absolute; right: 14px; top: 34px; width: 60px; height: 70px; pointer-events: none; }
+.cumple-globos i {
+  position: absolute; bottom: 20px;
+  width: 22px; height: 27px;
+  border-radius: 50% 50% 48% 52% / 58% 58% 42% 42%;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .75) 0 9%, transparent 24%), var(--c);
+  box-shadow: inset -3px -4px 7px rgba(0, 0, 0, .18);
+  animation: flotarGlobo 3.2s ease-in-out infinite alternate;
+}
+.cumple-globos i::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 22px; background: rgba(184, 143, 69, .6); }
+.cumple-globos i:nth-child(1) { left: 0;    --c: var(--red-2); animation-delay: -.8s; }
+.cumple-globos i:nth-child(2) { left: 19px; --c: var(--gold);  bottom: 30px; animation-delay: -1.9s; }
+.cumple-globos i:nth-child(3) { left: 38px; --c: var(--red);   animation-delay: -.3s; }
+@keyframes flotarGlobo { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-8px) rotate(4deg); } }
+@keyframes saltito { 0%, 70%, 100% { transform: translateX(-50%) translateY(0); } 80% { transform: translateX(-50%) translateY(-6px); } }
+.entrada.brillar { animation: brillar 1.8s ease; }
+@keyframes brillar { 30% { box-shadow: 0 0 0 6px rgba(227, 194, 126, .55), 0 0 40px rgba(227, 194, 126, .6); } }
+@media (max-width: 600px) {
+  .entrada.tipo-cumple { margin: 12px -8px; padding: 44px 10px 20px; }
+  .cumple-globos { right: 6px; transform: scale(.8); transform-origin: top right; }
+}
+
 .entrada.destacada .entrada-fecha { box-shadow: 0 0 0 3px var(--rose-soft), 0 0 30px var(--red-glow); }
 .entrada.destacada h4 { color: var(--red); }
 @media (max-width: 600px) {

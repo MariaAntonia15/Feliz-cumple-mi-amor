@@ -289,6 +289,20 @@ Te amo ❤️😘
       texto: "Llevamos {dias} días juntos, y esta página sigue en blanco para todo lo que nos falta por vivir." }
   ],
 
+  /* ---------- 🎂 CUMPLEAÑOS (fechas especiales de la agenda) ----------
+     Se repiten cada año: aparecen en la agenda en su próxima fecha, con
+     adornos y cuenta regresiva. Las fotos del álbum tomadas ese día (de
+     cualquier año) aparecen solas en su tarjeta.
+     fecha: "MM-DD"   anioNacimiento: opcional, para mostrar la edad    */
+  cumpleanos: [
+    { nombre: "Jose David", fecha: "10-09", anioNacimiento: 2005,
+      titulo: "Cumpleaños de Jose David",
+      texto: "El día en que llegó al mundo la persona que más amo." },
+    { nombre: "María Antonia", fecha: "12-15",
+      titulo: "Cumpleaños de María Antonia",
+      texto: "Mi día favorito para celebrarlo a tu lado." }
+  ],
+
   /* ---------- CARRUSELES DE FOTOS ----------
      Solo aparecen las fotos que existan en /fotos. Si no hay ninguna,
      la sección se esconde sola. Puedes crear varios carruseles.         */

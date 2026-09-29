@@ -200,8 +200,11 @@
   // Fotos del álbum tomadas el mismo día que un momento de la agenda
   function fotosEnAgenda(album) {
     if (!album.length) return;
-    $$(".entrada[data-fecha]").forEach((art) => {
-      const delDia = album.filter((f) => f.fecha === art.dataset.fecha);
+    $$(".entrada[data-fecha], .entrada[data-cumple]").forEach((art) => {
+      // En los cumpleaños: fotos de ese mismo día en cualquier año
+      const delDia = art.dataset.cumple
+        ? album.filter((f) => f.fecha.slice(5) === art.dataset.cumple)
+        : album.filter((f) => f.fecha === art.dataset.fecha);
       if (!delDia.length) return;
       const tira = el("div", { class: "entrada-fotos" });
       const figs = delDia.map((f, i) => {
@@ -458,13 +461,51 @@
   const TIPOS = {
     momento: { nombre: "Momento", plural: "Momentos", icono: "✨" },
     carta:   { nombre: "Carta",   plural: "Cartas",   icono: "💌" },
-    poema:   { nombre: "Poema",   plural: "Poemas",   icono: "🖋️" }
+    poema:   { nombre: "Poema",   plural: "Poemas",   icono: "🖋️" },
+    cumple:  { nombre: "Cumpleaños", plural: "Cumpleaños", icono: "🎂" }
   };
   const tipoDe = (e) => (TIPOS[e.tipo] ? e.tipo : "momento");
   const lecturas = [];
 
+  // Los cumpleaños se repiten cada año: se muestran en su próxima fecha
+  function cumpleEntrada(c) {
+    const [mes, dia] = String(c.fecha || "").split("-").map(Number);
+    if (!mes || !dia) return null;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    let y = hoy.getFullYear();
+    let d = new Date(y, mes - 1, dia);
+    if (d < hoy) { y++; d = new Date(y, mes - 1, dia); }
+    return {
+      tipo: "cumple",
+      fecha: `${y}-${pad(mes)}-${pad(dia)}`,
+      titulo: c.titulo || `Cumpleaños de ${c.nombre}`,
+      texto: c.texto || "",
+      _cumple: { nombre: c.nombre || "", mesDia: `${pad(mes)}-${pad(dia)}`, faltan: Math.round((d - hoy) / 864e5), edad: c.anioNacimiento ? y - c.anioNacimiento : null }
+    };
+  }
+  const cuentaCumple = (n) => (n === 0 ? "¡Es hoy! 🎉" : n === 1 ? "¡Es mañana! 🎈" : `Faltan ${n} días 🎈`);
+
+  // Banderines de fiesta colgando de un cordón
+  function banderines(n = 13) {
+    const cont = el("div", { class: "banderines", "aria-hidden": "true" });
+    cont.innerHTML = '<svg viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M2 2 Q50 26 98 2"/></svg>';
+    const colores = ["var(--red)", "var(--gold)", "var(--paper)", "var(--red-2)"];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const f = el("span");
+      f.style.left = `${2 + 96 * t}%`;
+      f.style.top = `${2 + 48 * t * (1 - t)}px`;   // sigue la curva del cordón
+      f.style.background = colores[i % colores.length];
+      f.style.animationDelay = `${(i % 5) * -0.35}s`;
+      cont.append(f);
+    }
+    return cont;
+  }
+
   function iniciarAgenda() {
-    const lista = (C.agenda || [])
+    const cumples = (C.cumpleanos || []).map(cumpleEntrada).filter(Boolean);
+    const lista = [...(C.agenda || []), ...cumples]
       .map((e, i) => ({ ...e, _i: i, _p: partesFecha(e.fecha), _orden: e.fecha === "hoy" ? "9999" : partesFecha(e.fecha).iso }))
       .sort((a, b) => (a._orden < b._orden ? -1 : a._orden > b._orden ? 1 : a._i - b._i)); // "hoy" siempre al final
     if (!lista.length) { $("#agenda").hidden = true; return; }
@@ -472,7 +513,7 @@
     const cont = $("#agenda-lista");
     const anios = $("#agenda-anios");
     const filtros = $("#agenda-filtros");
-    lista.filter((e) => tipoDe(e) !== "momento").forEach((e) => lecturas.push(e));
+    lista.filter((e) => tipoDe(e) === "carta" || tipoDe(e) === "poema").forEach((e) => lecturas.push(e));
 
     const grupos = new Map();
     lista.forEach((e) => {
@@ -519,6 +560,28 @@
       });
     }
     actualizarConteos();
+
+    // Fechas especiales: acceso directo a cada cumpleaños, con su cuenta regresiva
+    const especiales = lista.filter((e) => e._cumple);
+    if (especiales.length) {
+      const caja = $("#agenda-especiales");
+      caja.append(el("span", { class: "especiales-titulo" }, "🎉 Fechas especiales"));
+      especiales.forEach((e) => {
+        const b = el("button", { class: "especial", type: "button" },
+          el("strong", {}, `🎂 ${e._cumple.nombre}`),
+          el("span", {}, `${e._p.d} de ${MESES[e._p.m - 1]}`),
+          el("small", {}, cuentaCumple(e._cumple.faltan)));
+        b.addEventListener("click", () => {
+          e._nodo.classList.remove("oculta");
+          e._nodo.closest(".agenda-anio").hidden = false;
+          e._nodo.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+          e._nodo.classList.add("brillar");
+          setTimeout(() => e._nodo.classList.remove("brillar"), 1800);
+        });
+        caja.append(b);
+      });
+      caja.hidden = false;
+    }
     iniciarLector();
   }
 
@@ -539,12 +602,15 @@
     }
 
     const icono = tipo === "momento" ? (e.icono || T.icono) : T.icono;
-    const fechaExacta = !aprox && !e.foto ? p.iso : null; // para sumarle fotos del álbum de ese día
+    const cumple = e._cumple;
+    // para sumarle fotos del álbum de ese día (en los cumpleaños, del mismo día de cualquier año)
+    const fechaExacta = !aprox && !e.foto && !cumple ? p.iso : null;
     const cuerpo = el("div", { class: "entrada-cuerpo" },
       el("div", { class: "entrada-meta" },
         el("span", { class: "chip-tipo" }, `${icono} ${T.nombre}`),
         e.hora ? el("span", { class: "entrada-hora" }, "🕔 " + formatoHora(e.hora)) : null),
-      el("h4", {}, e.titulo || ""));
+      el("h4", {}, e.titulo || ""),
+      cumple && cumple.edad ? el("p", { class: "cumple-edad" }, `¡Cumple ${cumple.edad} años! ✨`) : null);
 
     if (e.foto || pendientes) {
       const marco = el("div", { class: "entrada-foto" });
@@ -558,19 +624,37 @@
     else renderTexto(texto, e.texto, tipo === "poema" ? "poema" : "carta");
     cuerpo.append(texto);
 
-    if (tipo !== "momento") {
+    if (tipo === "carta" || tipo === "poema") {
       const b = el("button", { class: "entrada-leer", type: "button" },
         largo ? (tipo === "poema" ? "Leer poema completo" : "Leer carta completa") : "Abrir en grande", " →");
       b.addEventListener("click", () => abrirLector(lecturas.indexOf(e)));
       cuerpo.append(b);
     }
+    if (cumple) cuerpo.append(el("span", { class: "cumple-cuenta" + (cumple.faltan === 0 ? " hoy" : "") }, cuentaCumple(cumple.faltan)));
 
-    return el("article", {
+    const art = el("article", {
       class: `entrada tipo-${tipo}` + (e.destacado ? " destacada" : ""),
       "data-tipo": tipo,
       "data-fecha": fechaExacta,
+      "data-cumple": cumple ? cumple.mesDia : null,
       "data-reveal": ""
-    }, fecha, cuerpo);
+    },
+    cumple ? banderines() : null,
+    cumple ? el("span", { class: "cumple-globos", "aria-hidden": "true" }, el("i"), el("i"), el("i")) : null,
+    fecha, cuerpo);
+    e._nodo = art;
+
+    // El día del cumpleaños: lluvia de confeti al llegar a su tarjeta
+    if (cumple && cumple.faltan === 0 && "IntersectionObserver" in window) {
+      const io = new IntersectionObserver((ent) => {
+        if (!ent[0].isIntersecting) return;
+        io.disconnect();
+        const r = art.getBoundingClientRect();
+        setTimeout(() => Confeti.lanzar(r.left + r.width / 2, Math.max(80, r.top + 40), 60), 400);
+      }, { threshold: 0.5 });
+      io.observe(art);
+    }
+    return art;
   }
 
   /* ---------- Lector de cartas y poemas ---------- */
