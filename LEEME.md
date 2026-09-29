@@ -49,7 +49,7 @@ Las fotos del álbum compartido **"Nosotros <3"** aparecen solas en:
 - la **portada** y el **cierre** (si no hay `portada.jpg` / `final.jpg`),
 - los **días de la agenda** que tengan la misma fecha que la foto.
 
-**Para agregar fotos: súbelas a ese álbum en Google Fotos.** Cada hora, GitHub revisa el álbum (`.github/workflows/fotos.yml` + `herramientas/actualizar-fotos.js`) y actualiza `fotos-album.json`. Para que sea al instante: en el repositorio ve a **Actions → Actualizar fotos del álbum → Run workflow**.
+**Para agregar fotos: súbelas a ese álbum en Google Fotos.** Cada 15 minutos, GitHub revisa el álbum (`.github/workflows/fotos.yml` + `herramientas/actualizar-fotos.js`) y actualiza `fotos-album.json`. Para que sea al instante: en el repositorio ve a **Actions → Actualizar fotos del álbum → Run workflow**.
 
 Si el álbum deja de estar compartido con enlace, la página conserva las últimas fotos guardadas.
 Si pasan 60 días sin cambios, GitHub pausa la revisión automática: entra a **Actions** y toca **Enable workflow**.
@@ -85,5 +85,5 @@ Los enlaces del **álbum de Google Fotos** y de la **lista de YouTube** no apare
 - `ALBUM_URL`: enlace para compartir el álbum de Google Fotos.
 - `LISTA_YOUTUBE`: enlace de la lista de YouTube.
 
-Cada hora, GitHub (`.github/workflows/fotos.yml`) los usa en privado y guarda solo lo que la página necesita: las fotos en `fotos-album.json` y los nombres de las canciones en `musica.json`.
+Cada 15 minutos, GitHub (`.github/workflows/fotos.yml`) los usa en privado y guarda solo lo que la página necesita: las fotos en `fotos-album.json` y los nombres de las canciones en `musica.json`.
 Para cambiar el álbum o la lista, edita el secreto (botón **Update**) y luego ve a **Actions → Actualizar fotos y canciones → Run workflow**.
